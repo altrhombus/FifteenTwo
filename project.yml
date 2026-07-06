@@ -9,12 +9,11 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    # Code signing disabled at the project level for now — Simulator builds don't need
-    # a team, and this gets reconfigured once the Apple Developer Program membership
-    # (needed for on-device Multipeer/Watch/SharePlay/Vision testing) is set up.
-    CODE_SIGN_IDENTITY: "-"
-    CODE_SIGNING_REQUIRED: "NO"
-    CODE_SIGNING_ALLOWED: "NO"
+    # Automatic signing, matching a normal new Xcode project's default. Requires an
+    # Apple ID signed into Xcode (Settings > Accounts) — a free Personal Team is enough
+    # for local Simulator/Mac/device runs. The paid Apple Developer Program membership
+    # is only needed later, for TestFlight and multi-device Multipeer/SharePlay testing.
+    CODE_SIGN_STYLE: Automatic
 
 packages:
   CribbageKit:
