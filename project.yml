@@ -52,6 +52,11 @@ targets:
         NSBonjourServices:
           - _fifteentwo-cr._tcp
           - _fifteentwo-cr._udp
+        # Required for Vision hand-scanning (Phase 13) — photographing a real dealt hand
+        # for discard-analysis coaching.
+        NSCameraUsageDescription: >-
+          Fifteen Two uses the camera to scan a real dealt hand of cards for discard
+          analysis.
     entitlements:
       path: App-iOS/FifteenTwo.entitlements
       properties:

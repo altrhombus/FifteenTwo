@@ -23,6 +23,8 @@
 		<string>_fifteentwo-cr._tcp</string>
 		<string>_fifteentwo-cr._udp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Fifteen Two uses the camera to scan a real dealt hand of cards for discard analysis.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Fifteen Two uses your local network to find nearby players for pass-and-play cribbage.</string>
 	<key>UILaunchScreen</key>

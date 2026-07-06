@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!--
+	Vision hand-scanning (docs/plan.md) captures a photo for on-device Vision
+	processing only: it's never written to disk, uploaded, or linked to identity --
+	just held in memory long enough to produce rank/suit guesses, then discarded.
+	That's why NSPrivacyCollectedDataTypes is empty rather than declaring Photos or
+	Videos as collected. If a future change persists or transmits scan photos, this
+	needs to be revisited.
+	-->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

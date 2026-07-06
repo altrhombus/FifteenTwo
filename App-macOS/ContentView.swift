@@ -9,6 +9,7 @@ private enum Section: String, CaseIterable, Identifiable {
     case play = "Play"
     case board = "Board"
     case multiplayer = "Multiplayer"
+    case scan = "Scan"
 
     var id: String { rawValue }
     var systemImage: String {
@@ -16,6 +17,7 @@ private enum Section: String, CaseIterable, Identifiable {
         case .play: "suit.spade.fill"
         case .board: "number"
         case .multiplayer: "person.2.fill"
+        case .scan: "camera.viewfinder"
         }
     }
 }
@@ -38,6 +40,8 @@ struct ContentView: View {
                 BoardView()
             case .multiplayer:
                 MultiplayerGameView()
+            case .scan:
+                ScanView()
             }
         }
         .frame(minWidth: 900, minHeight: 640)

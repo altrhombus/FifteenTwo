@@ -13,6 +13,9 @@ struct ContentView: View {
             Tab("Multiplayer", systemImage: "person.2.fill") {
                 MultiplayerGameView()
             }
+            Tab("Scan", systemImage: "camera.viewfinder") {
+                ScanView()
+            }
         }
         // On iPad's regular width class this renders as a sidebar instead of a bottom
         // tab bar (docs/plan.md Phase 9: "adaptive layouts") — free on iPhone too, since
