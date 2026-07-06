@@ -233,11 +233,40 @@ private struct CountingView: View {
                     DiscardAnalysisView(analysis: analysis)
                 }
 
+                Divider()
+                ReplayTransparencyView(seed: summary.seed) {
+                    controller.practiceThisHandAgain()
+                }
+
                 Button("Deal Next Hand") {
                     controller.dealNextHand()
                 }
                 .buttonStyle(.borderedProminent)
             }
+        }
+    }
+}
+
+/// Solo play has no adversary, so this is framed as transparency/replay, not a fairness
+/// *proof* — see docs/plan.md ("RNG & Fairness"): the same seed-reveal mechanism means
+/// something stronger once Multipeer exists (Phase 10), where the copy changes to match.
+private struct ReplayTransparencyView: View {
+    let seed: Seed256
+    let onPracticeAgain: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Replay & Transparency").font(.headline)
+            Text("This hand's deal was determined by a seed generated before dealing:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(seed.hexString.prefix(16) + "…")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            Button("Practice This Hand Again") {
+                onPracticeAgain()
+            }
+            .buttonStyle(.bordered)
         }
     }
 }
@@ -293,6 +322,14 @@ private struct GameOverView: View {
                     .font(.headline)
                     .foregroundStyle(.orange)
             }
+
+            if let summary = controller.state.lastRoundSummary {
+                Divider()
+                ReplayTransparencyView(seed: summary.seed) {
+                    controller.practiceThisHandAgain()
+                }
+            }
+
             Button("New Game") {
                 controller.newGame()
             }

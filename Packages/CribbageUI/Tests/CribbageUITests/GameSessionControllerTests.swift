@@ -17,7 +17,7 @@ import CribbageKit
 struct GameSessionControllerTests {
     @Test func playsFullGamesToCompletionWithoutViolatingAnyPrecondition() async {
         for seed in UInt64(0)..<2 {
-            let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner, seed: seed)
+            let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner)
             var rng = SeededGenerator(seed: seed &+ 1000)
             var safetyCounter = 0
 
@@ -67,7 +67,7 @@ struct GameSessionControllerTests {
     }
 
     @Test func humanDiscardPopulatesTheTrainingAnalysis() async {
-        let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner, seed: 123)
+        let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner)
         controller.startGame()
         await waitForCPU(controller) // let the CPU discard first, doesn't affect this check
 
@@ -87,5 +87,40 @@ struct GameSessionControllerTests {
         #expect(Set(analysis?.chosen ?? []) == Set(discarded))
         #expect(analysis?.chosenOption != nil)
         #expect(analysis?.bestOption == analysis?.options.first)
+    }
+
+    @Test func practiceThisHandAgainReplaysTheIdenticalDealWithFreshScores() async {
+        let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner)
+        controller.startGame()
+        // No `await` yet: the CPU's auto-discard runs as an async Task that hasn't had a
+        // chance to execute, so this is the raw, untouched 6-and-6 deal from the seed —
+        // the CPU's own discard *choice* isn't part of the seed's determinism (only the
+        // deal is; see cpuRNG's doc comment), so this must be captured before it acts.
+        let originalDeal = controller.state.hands
+        await waitForCPU(controller)
+
+        var rng = SeededGenerator(seed: 555)
+        var safetyCounter = 0
+        while controller.state.phase != .counting {
+            safetyCounter += 1
+            #expect(safetyCounter < 500, "Hand did not reach counting")
+            guard safetyCounter < 500 else { return }
+            await performOneStep(controller: controller, rng: &rng)
+        }
+
+        let originalSummary = controller.state.lastRoundSummary
+        #expect(originalSummary != nil)
+        // Scores are non-zero by counting time (pegging + hand/crib scoring happened).
+        #expect(controller.state.scores.playerOne > 0 || controller.state.scores.playerTwo > 0)
+
+        controller.practiceThisHandAgain()
+        // Same reasoning as above: capture before the CPU's async auto-discard runs.
+        let replayedDeal = controller.state.hands
+        await waitForCPU(controller)
+
+        #expect(controller.state.scores.playerOne == 0)
+        #expect(controller.state.scores.playerTwo == 0)
+        #expect(controller.state.currentSeed == originalSummary?.seed)
+        #expect(replayedDeal == originalDeal) // identical deal, reproduced from the seed
     }
 }

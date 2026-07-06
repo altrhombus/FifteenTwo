@@ -3,8 +3,8 @@
 public enum GameEngine {
     public static func reduce(_ state: GameState, applying move: Move) -> GameState {
         switch move {
-        case .dealHand:
-            return dealHand(state)
+        case .dealHand(let seed):
+            return dealHand(state, seed: seed)
         case .discard(let seat, let cards):
             return discard(state, seat: seat, cards: cards)
         case .cutForStarter:
@@ -25,14 +25,15 @@ public enum GameEngine {
 
     // MARK: - Dealing
 
-    private static func dealHand(_ state: GameState) -> GameState {
+    private static func dealHand(_ state: GameState, seed: Seed256) -> GameState {
         var next = state
         if next.phase == .counting {
             next.dealer = next.dealer.opponent
         }
         next.handNumber += 1
+        next.currentSeed = seed
 
-        var rng = SeededGenerator(seed: next.seed &+ UInt64(next.handNumber))
+        var rng = Xoshiro256StarStar(seed: seed)
         var shuffled = Deck.standard52
         shuffled.shuffle(using: &rng)
 
@@ -226,6 +227,7 @@ public enum GameEngine {
 
     private static func beginCounting(_ state: GameState) -> GameState {
         guard let starter = state.starter else { preconditionFailure("Starter must be set before counting") }
+        guard let seed = state.currentSeed else { preconditionFailure("currentSeed must be set before counting") }
 
         var next = state
         let nonDealer = next.dealer.opponent
@@ -255,7 +257,8 @@ public enum GameEngine {
             nonDealerHand: nonDealerBreakdown,
             dealerHand: dealerBreakdown,
             crib: cribBreakdown,
-            starter: starter
+            starter: starter,
+            seed: seed
         )
         next.phase = .counting
 

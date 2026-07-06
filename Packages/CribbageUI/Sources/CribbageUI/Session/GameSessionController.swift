@@ -1,13 +1,6 @@
 import Observation
 import CribbageKit
 
-/// Drives a solo game against `SolverCPU`. Every human action and every CPU reaction goes
-/// through the same `GameEngine.reduce` — see docs/plan.md ("One engine, three consumers").
-/// This lives in `CribbageUI` (not an app target) so macOS can reuse it unchanged in
-/// Phase 9 rather than duplicating session logic per platform.
-///
-/// CPU moves run off the main actor: a discard analysis is ~684,000 `Scorer` calls and
-/// takes over a second even in a release build, which would otherwise freeze the UI.
 /// The human's discard, ranked against every option `DiscardSolver` considered — the
 /// post-hand training breakdown per docs/plan.md ("post-game breakdown ... showing
 /// expected value of every discard choice").
@@ -22,6 +15,13 @@ public struct DiscardAnalysis: Equatable, Sendable {
     public var bestOption: DiscardOption? { options.first }
 }
 
+/// Drives a solo game against `SolverCPU`. Every human action and every CPU reaction goes
+/// through the same `GameEngine.reduce` — see docs/plan.md ("One engine, three consumers").
+/// This lives in `CribbageUI` (not an app target) so macOS can reuse it unchanged in
+/// Phase 9 rather than duplicating session logic per platform.
+///
+/// CPU moves run off the main actor: a discard analysis is ~684,000 `Scorer` calls and
+/// takes over a second even in a release build, which would otherwise freeze the UI.
 @Observable
 @MainActor
 public final class GameSessionController {
@@ -31,6 +31,10 @@ public final class GameSessionController {
     public private(set) var isCPUThinking = false
     public private(set) var lastDiscardAnalysis: DiscardAnalysis?
     private let ruleset: Ruleset
+    /// The CPU's own move-sampling randomness — deliberately independent of the per-hand
+    /// deal `Seed256`, which is the one that matters for fairness/replay (see
+    /// docs/plan.md, "RNG & Fairness"). Nothing about how the CPU plays needs to be
+    /// reproducible to the player.
     private var cpuRNG: SeededGenerator
     private var cpuTask: Task<Void, Never>?
     private var analysisTask: Task<Void, Never>?
@@ -38,29 +42,43 @@ public final class GameSessionController {
     public init(
         humanSeat: Seat = .playerOne,
         difficulty: CPUDifficulty = .intermediate,
-        ruleset: Ruleset = .standard,
-        seed: UInt64 = .random(in: .min ... .max)
+        ruleset: Ruleset = .standard
     ) {
-        self.state = GameState(ruleset: ruleset, dealer: humanSeat, seed: seed)
+        self.state = GameState(ruleset: ruleset, dealer: humanSeat)
         self.humanSeat = humanSeat
         self.difficulty = difficulty
         self.ruleset = ruleset
-        self.cpuRNG = SeededGenerator(seed: seed &+ 1)
+        self.cpuRNG = SeededGenerator(seed: .random(in: .min ... .max))
     }
 
     public var cpuSeat: Seat { humanSeat.opponent }
 
     public func startGame() {
-        apply(.dealHand)
+        apply(.dealHand(seed: .random()))
     }
 
     public func newGame() {
         cpuTask?.cancel()
         analysisTask?.cancel()
         lastDiscardAnalysis = nil
-        state = GameState(ruleset: ruleset, dealer: humanSeat, seed: .random(in: .min ... .max))
-        cpuRNG = SeededGenerator(seed: state.seed &+ 1)
+        state = GameState(ruleset: ruleset, dealer: humanSeat)
+        cpuRNG = SeededGenerator(seed: .random(in: .min ... .max))
         startGame()
+    }
+
+    /// "Practice this exact hand again" — see docs/plan.md's RNG & Fairness section: the
+    /// deal is entirely determined by its seed, so replaying it is just dealing again
+    /// with the same one. This starts a fresh practice attempt (scores reset to 0) rather
+    /// than resuming the prior game, since it's a training tool for this specific hand's
+    /// decisions, not a way to undo a result.
+    public func practiceThisHandAgain() {
+        guard let seed = state.lastRoundSummary?.seed else { return }
+        cpuTask?.cancel()
+        analysisTask?.cancel()
+        lastDiscardAnalysis = nil
+        state = GameState(ruleset: ruleset, dealer: humanSeat)
+        cpuRNG = SeededGenerator(seed: .random(in: .min ... .max))
+        apply(.dealHand(seed: seed))
     }
 
     public func discard(_ cards: [Card]) {
@@ -84,7 +102,7 @@ public final class GameSessionController {
 
     public func dealNextHand() {
         lastDiscardAnalysis = nil
-        apply(.dealHand)
+        apply(.dealHand(seed: .random()))
     }
 
     public var legalHumanPlays: [Card] {

@@ -4,7 +4,10 @@ public enum SkunkResult: String, Codable, Sendable {
 
 public struct GameState: Codable, Equatable, Sendable {
     public var ruleset: Ruleset
-    public var seed: UInt64
+    /// The seed behind the current hand's shuffle — `nil` before the first deal. See
+    /// `Seed256`'s doc comment for why this lives on the move, not generated in
+    /// `GameEngine.reduce`.
+    public var currentSeed: Seed256?
     public var handNumber: Int
     public var dealer: Seat
     public var phase: GamePhase
@@ -32,9 +35,9 @@ public struct GameState: Codable, Equatable, Sendable {
     public var lastRoundSummary: RoundSummary?
     public var winner: Seat?
 
-    public init(ruleset: Ruleset = .standard, dealer: Seat = .playerOne, seed: UInt64 = .random(in: .min ... .max)) {
+    public init(ruleset: Ruleset = .standard, dealer: Seat = .playerOne) {
         self.ruleset = ruleset
-        self.seed = seed
+        self.currentSeed = nil
         self.handNumber = 0
         self.dealer = dealer
         self.phase = .dealing

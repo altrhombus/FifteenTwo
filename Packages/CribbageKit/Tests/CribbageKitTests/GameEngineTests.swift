@@ -1,35 +1,42 @@
 import Testing
 @testable import CribbageKit
 
+/// A fixed, non-random seed for tests that need `.dealHand` to fire but don't care what
+/// the actual shuffle produces.
+private func testSeed(_ value: UInt64 = 1) -> Seed256 {
+    Seed256(a: value, b: value, c: value, d: value)
+}
+
 struct GameEngineTests {
     // MARK: - Dealing
 
     @Test func dealHandDealsSixEachFromAFullDeck() {
-        let dealt = GameEngine.reduce(GameState(seed: 42), applying: .dealHand)
+        let dealt = GameEngine.reduce(GameState(), applying: .dealHand(seed: testSeed(42)))
 
         #expect(dealt.hands.playerOne.count == 6)
         #expect(dealt.hands.playerTwo.count == 6)
         #expect(dealt.deck.count == 40)
         #expect(dealt.phase == .discarding)
+        #expect(dealt.currentSeed == testSeed(42))
 
         let allDealt = dealt.hands.playerOne + dealt.hands.playerTwo + dealt.deck
         #expect(Set(allDealt).count == 52)
     }
 
     @Test func dealHandAlternatesDealerOnlyAfterCounting() {
-        var state = GameState(dealer: .playerOne, seed: 7)
-        state = GameEngine.reduce(state, applying: .dealHand)
+        var state = GameState(dealer: .playerOne)
+        state = GameEngine.reduce(state, applying: .dealHand(seed: testSeed(7)))
         #expect(state.dealer == .playerOne) // very first deal never flips
 
         state.phase = .counting // simulate a completed hand
-        state = GameEngine.reduce(state, applying: .dealHand)
+        state = GameEngine.reduce(state, applying: .dealHand(seed: testSeed(8)))
         #expect(state.dealer == .playerTwo)
     }
 
     // MARK: - Discarding
 
     @Test func discardingBothSeatsAdvancesToCutStarter() {
-        var state = GameEngine.reduce(GameState(seed: 1), applying: .dealHand)
+        var state = GameEngine.reduce(GameState(), applying: .dealHand(seed: testSeed()))
 
         let firstDiscard = Array(state.hands.playerOne.prefix(2))
         state = GameEngine.reduce(state, applying: .discard(seat: .playerOne, cards: firstDiscard))
@@ -46,7 +53,7 @@ struct GameEngineTests {
     // MARK: - Cutting the starter
 
     @Test func cutForStarterAwardsHisHeelsWhenStarterIsAJack() {
-        var state = GameState(dealer: .playerOne, seed: 1)
+        var state = GameState(dealer: .playerOne)
         state.hands = PerSeat(
             playerOne: [
                 Card(rank: .two, suit: .spades), Card(rank: .four, suit: .spades),
@@ -112,7 +119,7 @@ struct GameEngineTests {
     // MARK: - Pegging turn-passing and "go" resolution
 
     @Test func sayGoAwardsThePointToTheLastPlayerAndReturnsLeadToTheFirstGoSayer() {
-        var state = GameState(dealer: .playerTwo, seed: 3)
+        var state = GameState(dealer: .playerTwo)
         // Placeholder kept hands / crib only to satisfy Scorer's 4-card precondition if
         // this test's moves happened to exhaust pegging — they don't, so the values here
         // don't otherwise matter.
@@ -156,7 +163,7 @@ struct GameEngineTests {
     /// only goes up, so the go-sayer is guaranteed to still be stuck) — the turn must not
     /// bounce back to them after every single play.
     @Test func afterAGoTheOtherSeatKeepsPlayingMultipleCardsWithoutTheTurnBouncingBack() {
-        var state = GameState(dealer: .playerTwo, seed: 11)
+        var state = GameState(dealer: .playerTwo)
         let placeholderHand = [
             Card(rank: .two, suit: .hearts), Card(rank: .four, suit: .diamonds),
             Card(rank: .six, suit: .hearts), Card(rank: .eight, suit: .diamonds)
@@ -195,7 +202,7 @@ struct GameEngineTests {
     }
 
     @Test func peggingEndsAndBeginsCountingOnceBothHandsAreExhausted() {
-        var state = GameState(dealer: .playerTwo, seed: 5)
+        var state = GameState(dealer: .playerTwo)
         // The verified zero-point combination from ScorerTests.zeroPointHand, reused for
         // both hands and the crib so this test isolates the pegging-run score cleanly.
         let zeroScoringHand = [
@@ -205,6 +212,7 @@ struct GameEngineTests {
         state.hands = PerSeat(playerOne: zeroScoringHand, playerTwo: zeroScoringHand)
         state.crib = zeroScoringHand
         state.starter = Card(rank: .jack, suit: .spades)
+        state.currentSeed = testSeed()
         state.phase = .pegging
         state.peggingRemaining = PerSeat(
             playerOne: [Card(rank: .ten, suit: .spades), Card(rank: .nine, suit: .clubs)],
@@ -234,7 +242,7 @@ struct GameEngineTests {
     // MARK: - Counting short-circuits the moment someone reaches the target
 
     @Test func gameEndsImmediatelyIfNonDealerHandAloneReachesTarget() {
-        var state = GameState(ruleset: Ruleset(gameTarget: 10), dealer: .playerTwo, seed: 9)
+        var state = GameState(ruleset: Ruleset(gameTarget: 10), dealer: .playerTwo)
         // Non-dealer (playerOne) holds a hand worth well over 10 on its own: four 5s.
         state.hands = PerSeat(
             playerOne: [
@@ -251,6 +259,7 @@ struct GameEngineTests {
             Card(rank: .six, suit: .clubs), Card(rank: .eight, suit: .clubs)
         ]
         state.starter = Card(rank: .nine, suit: .hearts)
+        state.currentSeed = testSeed()
         state.phase = .pegging
         state.peggingRemaining = PerSeat(playerOne: [], playerTwo: [Card(rank: .ace, suit: .hearts)])
         // Force the transition into counting by playing the very last remaining card.
@@ -268,7 +277,7 @@ struct GameEngineTests {
     // MARK: - Skunk detection
 
     @Test func skunkResultReflectsTheLosersFinalScore() {
-        var state = GameState(seed: 1)
+        var state = GameState()
         state.phase = .gameOver
         state.winner = .playerOne
         state.scores = PerSeat(playerOne: 121, playerTwo: 75)

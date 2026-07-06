@@ -14,7 +14,17 @@ identifier_name:
     - hi
     - go
     - k
+    - a
+    - b
+    - c
+    - d
+    - x
+    - t
 
 function_parameter_count:
   warning: 7
   error: 9
+
+large_tuple:
+  warning: 4
+  error: 5
