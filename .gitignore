@@ -1,0 +1,27 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+!default.xcworkspace
+*.xcuserstate
+*.xcuserdatad/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# xcodegen output is generated from project.yml — not checked in
+*.xcodeproj/
+
+# macOS
+.DS_Store
+
+# Secrets / local config
+*.xcconfig.local
