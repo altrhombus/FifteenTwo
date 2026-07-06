@@ -1,21 +1,42 @@
 import SwiftUI
-import CribbageKit
-import CribbageBoardKit
-import CribbageSync
-import CribbageVision
-import CribbageData
 import CribbageUI
 
-struct ContentView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("Fifteen Two")
-                .font(.largeTitle.bold())
-            Text("Scaffolding — not yet playable")
-                .foregroundStyle(.secondary)
+/// Mac's idiom for a two-section app is a sidebar, not a tab bar (see docs/plan.md
+/// Phase 9: "adaptive layouts... Mac windowing/pointer support") — `GameView`/`BoardView`
+/// are reused unchanged from CribbageUI, each keeping its own internal `NavigationStack`
+/// as the detail column's content.
+private enum Section: String, CaseIterable, Identifiable {
+    case play = "Play"
+    case board = "Board"
+
+    var id: String { rawValue }
+    var systemImage: String {
+        switch self {
+        case .play: "suit.spade.fill"
+        case .board: "number"
         }
-        .padding()
-        .frame(minWidth: 480, minHeight: 320)
+    }
+}
+
+struct ContentView: View {
+    @State private var selection: Section? = .play
+
+    var body: some View {
+        NavigationSplitView {
+            List(Section.allCases, selection: $selection) { section in
+                Label(section.rawValue, systemImage: section.systemImage)
+                    .tag(section)
+            }
+            .navigationSplitViewColumnWidth(180)
+        } detail: {
+            switch selection {
+            case .play, .none:
+                GameView()
+            case .board:
+                BoardView()
+            }
+        }
+        .frame(minWidth: 900, minHeight: 640)
     }
 }
 
