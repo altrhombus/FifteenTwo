@@ -40,4 +40,54 @@ enum TestImageFactory {
 
         return context.makeImage()!
     }
+
+    /// A filled diamond (rotated square) on a white background — fully convex, the
+    /// easiest case for `SuitShapeAnalyzer` to confirm as such.
+    static func filledDiamond(size: Int = 200) -> CGImage {
+        let context = whiteCanvas(size: size)
+        let center = CGFloat(size) / 2
+        let radius = CGFloat(size) * 0.35
+
+        context.setFillColor(CGColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1))
+        context.move(to: CGPoint(x: center, y: center - radius))
+        context.addLine(to: CGPoint(x: center + radius, y: center))
+        context.addLine(to: CGPoint(x: center, y: center + radius))
+        context.addLine(to: CGPoint(x: center - radius, y: center))
+        context.closePath()
+        context.fillPath()
+
+        return context.makeImage()!
+    }
+
+    /// A filled shape with a deep, unambiguous concave notch cut into one edge —
+    /// standing in for a heart's concave dip between its two top lobes, without needing
+    /// to draw an actual heart curve precisely.
+    static func filledNotchedShape(size: Int = 200) -> CGImage {
+        let context = whiteCanvas(size: size)
+        let side = CGFloat(size)
+
+        context.setFillColor(CGColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1))
+        context.move(to: CGPoint(x: side * 0.2, y: side * 0.2))
+        context.addLine(to: CGPoint(x: side * 0.2, y: side * 0.8))
+        context.addLine(to: CGPoint(x: side * 0.4, y: side * 0.8))
+        context.addLine(to: CGPoint(x: side * 0.5, y: side * 0.3)) // deep notch, dips well inward
+        context.addLine(to: CGPoint(x: side * 0.6, y: side * 0.8))
+        context.addLine(to: CGPoint(x: side * 0.8, y: side * 0.8))
+        context.addLine(to: CGPoint(x: side * 0.8, y: side * 0.2))
+        context.closePath()
+        context.fillPath()
+
+        return context.makeImage()!
+    }
+
+    private static func whiteCanvas(size: Int) -> CGContext {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CGContext(
+            data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+        return context
+    }
 }

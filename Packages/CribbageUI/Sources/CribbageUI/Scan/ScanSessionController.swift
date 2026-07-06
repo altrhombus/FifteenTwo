@@ -48,7 +48,7 @@ public final class ScanSessionController {
                 }.value
                 guesses = scanned.map {
                     EditableCardGuess(
-                        id: $0.id, rank: $0.guessedRank, suit: nil,
+                        id: $0.id, rank: $0.guessedRank, suit: $0.guessedSuit,
                         suggestedColor: $0.guessedColor, cornerImage: $0.cornerImage
                     )
                 }

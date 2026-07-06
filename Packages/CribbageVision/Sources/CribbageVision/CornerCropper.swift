@@ -13,4 +13,15 @@ public enum CornerCropper {
         let cropRect = CGRect(x: extent.minX, y: extent.maxY - cropHeight, width: cropWidth, height: cropHeight)
         return image.cropped(to: cropRect)
     }
+
+    /// Isolates just the suit-symbol half of an already-cropped corner index (rank glyph
+    /// on top, suit symbol below, on a standard card) — `SuitShapeAnalyzer`'s contour
+    /// analysis needs the suit symbol alone, unlike color detection, which is robust
+    /// enough to tolerate the rank glyph being included too.
+    public static func cropSuitSymbol(of cornerImage: CIImage) -> CIImage {
+        let extent = cornerImage.extent
+        let suitHeight = extent.height * 0.5
+        let suitRect = CGRect(x: extent.minX, y: extent.minY, width: extent.width, height: suitHeight)
+        return cornerImage.cropped(to: suitRect)
+    }
 }
