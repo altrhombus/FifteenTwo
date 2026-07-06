@@ -3,7 +3,7 @@
 /// fairness/replay design in docs/plan.md ("RNG & Fairness"): a 256-bit CSPRNG seed with
 /// commit-then-reveal for Multipeer. That upgrade is Phase 5 — this satisfies "replayable"
 /// for now without blocking the game loop on it.
-public struct SeededGenerator: RandomNumberGenerator {
+public struct SeededGenerator: RandomNumberGenerator, Sendable {
     private var state: UInt64
 
     public init(seed: UInt64) {

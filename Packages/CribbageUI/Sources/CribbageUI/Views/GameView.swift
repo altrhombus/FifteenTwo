@@ -32,10 +32,25 @@ public struct GameView: View {
                     GameOverView(controller: controller)
                 }
 
+                if controller.isCPUThinking {
+                    Label("CPU is thinking…", systemImage: "brain")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Spacer()
             }
             .padding()
             .navigationTitle("Fifteen Two")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Picker("Difficulty", selection: Bindable(controller).difficulty) {
+                        ForEach(CPUDifficulty.allCases) { difficulty in
+                            Text(difficulty.rawValue.capitalized).tag(difficulty)
+                        }
+                    }
+                }
+            }
             .task {
                 if controller.state.phase == .dealing {
                     controller.startGame()

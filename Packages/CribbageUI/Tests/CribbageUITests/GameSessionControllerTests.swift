@@ -7,19 +7,26 @@ import CribbageKit
 /// This is the integration check that the reducer, the CPU automation, and the session
 /// controller's move-application all cooperate correctly across a whole game, not just
 /// the isolated `GameEngine` unit tests.
+///
+/// The CPU now runs the real solvers asynchronously (see GameSessionController's doc
+/// comment on why), so this test awaits `isCPUThinking` going false after every human
+/// move rather than looping synchronously. Only 2 games are run here — a discard
+/// analysis is ~684,000 Scorer calls, so a full game's worth of CPU discards is the
+/// dominant cost, unlike the old NaiveCPU-backed version of this test.
+@MainActor
 struct GameSessionControllerTests {
-    @Test func playsFullGamesToCompletionWithoutViolatingAnyPrecondition() {
-        for seed in UInt64(0)..<20 {
-            let controller = GameSessionController(humanSeat: .playerOne, seed: seed)
+    @Test func playsFullGamesToCompletionWithoutViolatingAnyPrecondition() async {
+        for seed in UInt64(0)..<2 {
+            let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner, seed: seed)
             var rng = SeededGenerator(seed: seed &+ 1000)
             var safetyCounter = 0
 
             while controller.state.phase != .gameOver {
                 safetyCounter += 1
-                #expect(safetyCounter < 5000, "Game did not terminate — possible stuck state at seed \(seed)")
-                guard safetyCounter < 5000 else { break }
+                #expect(safetyCounter < 500, "Game did not terminate — possible stuck state at seed \(seed)")
+                guard safetyCounter < 500 else { break }
 
-                performOneStep(controller: controller, rng: &rng)
+                await performOneStep(controller: controller, rng: &rng)
             }
 
             #expect(controller.state.phase == .gameOver)
@@ -28,7 +35,7 @@ struct GameSessionControllerTests {
         }
     }
 
-    private func performOneStep(controller: GameSessionController, rng: inout SeededGenerator) {
+    private func performOneStep(controller: GameSessionController, rng: inout SeededGenerator) async {
         switch controller.state.phase {
         case .dealing:
             controller.startGame()
@@ -48,7 +55,14 @@ struct GameSessionControllerTests {
         case .counting:
             controller.dealNextHand()
         case .gameOver:
-            break
+            return
+        }
+        await waitForCPU(controller)
+    }
+
+    private func waitForCPU(_ controller: GameSessionController) async {
+        while controller.isCPUThinking {
+            await Task.yield()
         }
     }
 }
