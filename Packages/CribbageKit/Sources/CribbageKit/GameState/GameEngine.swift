@@ -121,6 +121,11 @@ public enum GameEngine {
         if next.peggingCount == 31 {
             resetPeggingRun(&next)
             next.turnToAct = firstAvailableLeader(preferring: seat.opponent, in: next) ?? next.turnToAct
+        } else if next.goSeat != nil {
+            // Someone already said go this run — the count only went up since then, so
+            // they're still stuck. The current player keeps leading rather than bouncing
+            // the turn back to a seat that's guaranteed unable to act.
+            next.turnToAct = seat
         } else {
             next.turnToAct = seat.opponent
         }

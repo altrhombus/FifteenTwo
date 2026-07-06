@@ -151,6 +151,49 @@ struct GameEngineTests {
         #expect(afterSecondGo.phase == .pegging) // both seats still hold a card
     }
 
+    /// Regression test for a real bug found while designing PeggingSolver: after one seat
+    /// says go, the other seat must be able to play *multiple* cards in a row (the count
+    /// only goes up, so the go-sayer is guaranteed to still be stuck) — the turn must not
+    /// bounce back to them after every single play.
+    @Test func afterAGoTheOtherSeatKeepsPlayingMultipleCardsWithoutTheTurnBouncingBack() {
+        var state = GameState(dealer: .playerTwo, seed: 11)
+        let placeholderHand = [
+            Card(rank: .two, suit: .hearts), Card(rank: .four, suit: .diamonds),
+            Card(rank: .six, suit: .hearts), Card(rank: .eight, suit: .diamonds)
+        ]
+        state.hands = PerSeat(playerOne: placeholderHand, playerTwo: placeholderHand)
+        state.crib = placeholderHand
+        state.starter = Card(rank: .five, suit: .clubs)
+        state.phase = .pegging
+        state.peggingRemaining = PerSeat(
+            playerOne: [Card(rank: .king, suit: .spades)],
+            playerTwo: [Card(rank: .ace, suit: .clubs), Card(rank: .two, suit: .diamonds)]
+        )
+        state.peggingPile = [
+            Card(rank: .nine, suit: .hearts), Card(rank: .king, suit: .diamonds), Card(rank: .six, suit: .clubs)
+        ]
+        state.peggingCount = 25 // playerOne's only card (a king, pip 10) would bust to 35
+        state.turnToAct = .playerOne
+        state.goSeat = nil
+
+        let afterGo = GameEngine.reduce(state, applying: .sayGo(seat: .playerOne))
+        #expect(afterGo.goSeat == .playerOne)
+        #expect(afterGo.turnToAct == .playerTwo)
+
+        let aceOfClubs = Card(rank: .ace, suit: .clubs)
+        let afterFirstPlay = GameEngine.reduce(afterGo, applying: .playCard(seat: .playerTwo, card: aceOfClubs))
+        #expect(afterFirstPlay.peggingCount == 26)
+        #expect(afterFirstPlay.turnToAct == .playerTwo) // stays — playerOne is still stuck
+
+        let afterSecondPlay = GameEngine.reduce(
+            afterFirstPlay, applying: .playCard(seat: .playerTwo, card: Card(rank: .two, suit: .diamonds))
+        )
+        #expect(afterSecondPlay.peggingCount == 28)
+        #expect(afterSecondPlay.peggingRemaining.playerTwo.isEmpty)
+        #expect(afterSecondPlay.turnToAct == .playerTwo) // still stays, even though they're now out of cards
+        #expect(afterSecondPlay.phase == .pegging) // playerOne's king hasn't been played yet
+    }
+
     @Test func peggingEndsAndBeginsCountingOnceBothHandsAreExhausted() {
         var state = GameState(dealer: .playerTwo, seed: 5)
         // The verified zero-point combination from ScorerTests.zeroPointHand, reused for
