@@ -11,8 +11,11 @@ let package = Package(
     products: [
         .library(name: "CribbageBoardKit", targets: ["CribbageBoardKit"])
     ],
+    dependencies: [
+        .package(path: "../CribbageKit")
+    ],
     targets: [
-        .target(name: "CribbageBoardKit"),
+        .target(name: "CribbageBoardKit", dependencies: ["CribbageKit"]),
         .testTarget(name: "CribbageBoardKitTests", dependencies: ["CribbageBoardKit"])
     ]
 )
