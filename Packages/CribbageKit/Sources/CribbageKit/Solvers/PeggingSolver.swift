@@ -10,9 +10,12 @@ public enum PeggingSolver {
     /// Exact minimax — both hands are fully known (post-game analysis, "practice this
     /// hand again" replay). The objective is net margin (my points minus theirs) from
     /// this point to the end of pegging, not a full-game win-probability estimate.
-    public static func bestPlay(
+    /// Every legal card, ranked best first — `[0]` is `bestPlay`'s answer. Exposed as a
+    /// ranked list (rather than just the top choice) so CPU difficulty tiers can sample
+    /// from the top-*k* instead of always playing perfectly.
+    public static func rankedPlays(
         mine: [Card], theirs: [Card], pile: [Card], ruleset: Ruleset = .standard
-    ) -> PeggingOption {
+    ) -> [PeggingOption] {
         let count = pile.reduce(0) { $0 + $1.rank.pipValue }
         let state = SearchState(
             mine: mine, theirs: theirs, pile: pile, count: count,
@@ -21,14 +24,17 @@ public enum PeggingSolver {
 
         let legal = state.mine.filter { state.count + $0.rank.pipValue <= 31 }
         guard !legal.isEmpty else {
-            return PeggingOption(card: nil, netScore: valueAfterGo(state, iAmGoing: true, ruleset: ruleset))
+            return [PeggingOption(card: nil, netScore: valueAfterGo(state, iAmGoing: true, ruleset: ruleset))]
         }
-        var best: (Card?, Int) = (nil, Int.min)
-        for card in legal {
-            let value = valueAfterPlay(card, from: state, mine: true, ruleset: ruleset)
-            if value > best.1 { best = (card, value) }
-        }
-        return PeggingOption(card: best.0, netScore: best.1)
+        return legal
+            .map { PeggingOption(card: $0, netScore: valueAfterPlay($0, from: state, mine: true, ruleset: ruleset)) }
+            .sorted { $0.netScore > $1.netScore }
+    }
+
+    public static func bestPlay(
+        mine: [Card], theirs: [Card], pile: [Card], ruleset: Ruleset = .standard
+    ) -> PeggingOption {
+        rankedPlays(mine: mine, theirs: theirs, pile: pile, ruleset: ruleset)[0]
     }
 
     /// Live CPU decision — the opponent's hand is genuinely hidden. Samples plausible
@@ -36,7 +42,9 @@ public enum PeggingSolver {
     /// those samples, rather than exhaustively enumerating all ~100,000 possibilities
     /// (see docs/plan.md's complexity note) — this keeps play imperceptibly fast while
     /// still being expectation-optimal under a correct probability model.
-    public static func bestPlay<G: RandomNumberGenerator>(
+    /// Every legal card, ranked best first under sampling — see the exact-minimax
+    /// overload's doc comment for why a ranked list is exposed rather than just the best.
+    public static func rankedPlays<G: RandomNumberGenerator>(
         mine: [Card],
         unseenCards: [Card],
         opponentCardCount: Int,
@@ -44,16 +52,16 @@ public enum PeggingSolver {
         sampleCount: Int = 150,
         ruleset: Ruleset = .standard,
         using rng: inout G
-    ) -> PeggingOption {
+    ) -> [PeggingOption] {
         let count = pile.reduce(0) { $0 + $1.rank.pipValue }
         let legal = mine.filter { count + $0.rank.pipValue <= 31 }
         guard !legal.isEmpty else {
-            return PeggingOption(card: nil, netScore: 0)
+            return [PeggingOption(card: nil, netScore: 0)]
         }
         guard unseenCards.count >= opponentCardCount, opponentCardCount > 0 else {
             // No information to sample from (or opponent holds nothing) — fall back to
-            // the best card against an empty hypothetical hand.
-            return bestPlay(mine: mine, theirs: [], pile: pile, ruleset: ruleset)
+            // ranking against an empty hypothetical hand.
+            return rankedPlays(mine: mine, theirs: [], pile: pile, ruleset: ruleset)
         }
 
         var totals: [Card: Int] = [:]
@@ -70,9 +78,27 @@ public enum PeggingSolver {
             }
         }
 
-        let best = legal.max { (totals[$0] ?? 0) < (totals[$1] ?? 0) }
-        let bestTotal = best.flatMap { totals[$0] } ?? 0
-        return PeggingOption(card: best, netScore: Int((Double(bestTotal) / Double(sampleCount)).rounded()))
+        return legal
+            .map { card in
+                let average = Double(totals[card] ?? 0) / Double(sampleCount)
+                return PeggingOption(card: card, netScore: Int(average.rounded()))
+            }
+            .sorted { $0.netScore > $1.netScore }
+    }
+
+    public static func bestPlay<G: RandomNumberGenerator>(
+        mine: [Card],
+        unseenCards: [Card],
+        opponentCardCount: Int,
+        pile: [Card],
+        sampleCount: Int = 150,
+        ruleset: Ruleset = .standard,
+        using rng: inout G
+    ) -> PeggingOption {
+        rankedPlays(
+            mine: mine, unseenCards: unseenCards, opponentCardCount: opponentCardCount,
+            pile: pile, sampleCount: sampleCount, ruleset: ruleset, using: &rng
+        )[0]
     }
 
     // MARK: - Shared minimax core

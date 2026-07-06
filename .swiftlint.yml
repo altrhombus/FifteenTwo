@@ -14,3 +14,7 @@ identifier_name:
     - hi
     - go
     - k
+
+function_parameter_count:
+  warning: 7
+  error: 9

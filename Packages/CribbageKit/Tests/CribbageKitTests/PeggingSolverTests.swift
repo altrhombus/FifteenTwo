@@ -4,6 +4,21 @@ import Testing
 /// Every expected outcome below is traced by hand through the full (small, fully forced
 /// or fully enumerable) game tree — see docs/plan.md ("no guessing").
 struct PeggingSolverTests {
+    @Test func rankedPlaysCoversEveryLegalCardSortedBestFirst() {
+        // Same hand as choosesTheLeadThatAvoidsGiftingAnEasyFifteen: both cards are
+        // legal leads, but 9 (net 0) must rank above 5 (net -2).
+        let ranked = PeggingSolver.rankedPlays(
+            mine: [Card(rank: .five, suit: .spades), Card(rank: .nine, suit: .clubs)],
+            theirs: [Card(rank: .ten, suit: .diamonds)],
+            pile: []
+        )
+        #expect(ranked.count == 2)
+        #expect(ranked[0].card == Card(rank: .nine, suit: .clubs))
+        #expect(ranked[0].netScore == 0)
+        #expect(ranked[1].card == Card(rank: .five, suit: .spades))
+        #expect(ranked[1].netScore == -2)
+    }
+
     @Test func bothHandsSingleCardForcedSequenceScoresTheFifteenCorrectly() {
         // I play 7, they're forced to play 8 (their only card) making 15 — 2 points to them.
         let option = PeggingSolver.bestPlay(
