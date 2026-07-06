@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 import CribbageKit
 
@@ -370,3 +371,4 @@ private struct GameOverView: View {
 #Preview {
     GameView()
 }
+#endif

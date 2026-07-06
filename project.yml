@@ -54,6 +54,9 @@ targets:
       - package: CribbageVision
       - package: CribbageData
       - package: CribbageUI
+      - target: FifteenTwo-Watch
+        embed: true
+        codeSignOnCopy: true
 
   FifteenTwo-macOS:
     type: application
@@ -75,8 +78,8 @@ targets:
       - package: CribbageUI
 
   FifteenTwo-Watch:
-    # Standalone for now to keep Phase 1 scaffolding simple; reconfigured as a proper
-    # embedded companion to FifteenTwo-iOS (for WatchConnectivity pairing) in Phase 8.
+    # A proper companion to FifteenTwo-iOS (embedded above) for WatchConnectivity
+    # pairing, per docs/plan.md's watchOS Companion section — not standalone.
     type: application
     platform: watchOS
     sources:
@@ -85,10 +88,12 @@ targets:
       path: Watch/Info.plist
       properties:
         WKApplication: true
-        WKRunsIndependentlyOfCompanionApp: true
+        WKRunsIndependentlyOfCompanionApp: false
+        WKCompanionAppBundleIdentifier: com.altrhombus.FifteenTwo
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo.watchkitapp
     dependencies:
       - package: CribbageKit
       - package: CribbageBoardKit
+      - package: CribbageUI

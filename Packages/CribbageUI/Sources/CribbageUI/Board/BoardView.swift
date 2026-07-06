@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 import SwiftData
 import CribbageKit
@@ -156,3 +157,4 @@ private struct NewMatchSheet: View {
 #Preview {
     BoardView()
 }
+#endif

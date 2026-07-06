@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 import CribbageKit
 
@@ -84,3 +85,4 @@ struct CardLabel: View {
         .accessibilityValue(accessibilityState ?? "")
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 import CribbageKit
 
@@ -17,3 +18,4 @@ enum AccessibilityAnnouncer {
         }
     }
 }
+#endif

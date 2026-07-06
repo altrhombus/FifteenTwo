@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import Observation
 import CribbageKit
 
@@ -201,3 +202,4 @@ public final class GameSessionController {
         }
     }
 }
+#endif

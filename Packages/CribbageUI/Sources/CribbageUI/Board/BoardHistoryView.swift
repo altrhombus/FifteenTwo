@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 import CribbageBoardKit
 
@@ -53,3 +54,4 @@ struct BoardHistoryView: View {
         matches.remove(atOffsets: offsets)
     }
 }
+#endif
