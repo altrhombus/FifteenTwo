@@ -149,6 +149,12 @@ Easy to discover too late, so calling it out now: **Multipeer, WatchConnectivity
 
 Since the app is explicitly multi-platform, **enable SwiftData's near-native CloudKit sync for `CribbageData`** (match history, drill stats, settings) from the start — game history recorded on iPhone should just show up on iPad/Mac automatically, with no separate sync mechanism to build. This is cheap to turn on while the schema is still simple (an iCloud container entitlement, CloudKit-compatible model constraints — all properties need defaults or be optional, no unique constraints) and meaningfully more work to retrofit once real data and a grown schema exist. Build this into `CribbageData` as of Phase 7 (physical board companion mode), since that's the first phase that introduces SwiftData at all — there's no separate later phase needed for this.
 
+## Game Center
+
+Achievements and leaderboards are a cheap, well-fitting addition, not an architectural one: they're just `GKAchievement`/`GKLeaderboard` reporting calls triggered at state transitions that already exist — a solo-game win/skunk in `GameSessionController`, a completed `BoardMatch` in the physical-board companion. Following the same pattern as `AccessibilityAnnouncer` (a thin platform-specific layer reacting to state changes, not a change to the pure engine), this can be a small `GameCenterReporter`-style addition in `CribbageUI` with no changes to `CribbageKit`/`CribbageBoardKit` at all.
+
+Turn-based async matchmaking (playing a friend over days, not live) is a different and much bigger question, deliberately kept out of the MVP phases below: `GKTurnBasedMatch` is store-and-forward through Apple's servers, not a live session, so it doesn't fit the existing `GameTransport` protocol (built for Multipeer/SharePlay's live message-passing) — it would need its own transport shape entirely. That's real new scope, not a bolt-on, so it's listed under Post-MVP rather than folded into the current phases.
+
 ## Recommended Build Order
 
 Sequenced so logic gets proven before UI complexity, cross-cutting concerns (RNG, accessibility) get established early, and every MVP feature you asked for still ends up shipped and working together:
@@ -163,10 +169,11 @@ Sequenced so logic gets proven before UI complexity, cross-cutting concerns (RNG
 7. **Physical board companion mode** — its own lightweight module, first use of SwiftData for match history, with CloudKit sync (see Cross-Device History Sync above) enabled from this first use rather than bolted on later. Good second feature: simpler than the full engine, momentum builder.
 8. **watchOS companion for board mode** — `WCSession.updateApplicationContext`, thin companion only.
 9. **iPad + Mac polish** — adaptive layouts (`NavigationSplitView`, Mac windowing/pointer support), mechanical work sequenced after logic is proven.
-10. **Multipeer pass-and-play** — `CribbageSync` + `MultipeerGameTransport`, now that `reduce` is battle-tested solo.
-11. **SharePlay** — `GroupActivityGameTransport` (`GroupActivities`/`GroupSessionMessenger`) as the second `GameTransport` conformance, plus the `GroupActivity` registration and FaceTime-launch UI. Sequenced right after Multipeer on purpose: the transport abstraction and reducer are proven by then, so this phase's genuinely new work is scoped to GroupActivities-specific plumbing and UI, not game logic. Line up a second tester ahead of this phase (see Device Testing & Logistics).
-12. **Vision hand-scanning** — last among MVP features on purpose: rectangle detection + OCR + suit classifier + mandatory manual-confirmation, reusing the Phase 3 entry UI.
-13. **Post-MVP**: Widgets/Live Activities — set up the App Group container convention *before* any widget exists so SwiftData already lives in the shared container (retrofitting later needs a data migration).
+10. **Game Center achievements & leaderboards** — see Game Center above. A thin `CribbageUI` reporter reacting to existing game-over/match-completion events; ready to build now that both solo wins (Phase 4) and board-match completion (Phase 7) exist, and low-risk enough to slot in once the core cross-platform experience is solid.
+11. **Multipeer pass-and-play** — `CribbageSync` + `MultipeerGameTransport`, now that `reduce` is battle-tested solo.
+12. **SharePlay** — `GroupActivityGameTransport` (`GroupActivities`/`GroupSessionMessenger`) as the second `GameTransport` conformance, plus the `GroupActivity` registration and FaceTime-launch UI. Sequenced right after Multipeer on purpose: the transport abstraction and reducer are proven by then, so this phase's genuinely new work is scoped to GroupActivities-specific plumbing and UI, not game logic. Line up a second tester ahead of this phase (see Device Testing & Logistics).
+13. **Vision hand-scanning** — last among MVP features on purpose: rectangle detection + OCR + suit classifier + mandatory manual-confirmation, reusing the Phase 3 entry UI.
+14. **Post-MVP**: Widgets/Live Activities — set up the App Group container convention *before* any widget exists so SwiftData already lives in the shared container (retrofitting later needs a data migration); Game Center turn-based async matchmaking — see Game Center above for why this needs its own transport shape rather than reusing `GameTransport`, which is why it's here rather than alongside Multipeer/SharePlay.
 
 ## Critical Files
 
