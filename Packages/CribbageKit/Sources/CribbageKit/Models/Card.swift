@@ -11,4 +11,7 @@ public struct Card: Hashable, Codable, Identifiable, Sendable {
     /// computed rather than a stored UUID — two `Card`s for the same rank/suit must
     /// remain `Equatable`-equal for scoring and solver lookups to work correctly.
     public var id: String { "\(rank.rawValue)-\(suit.rawValue)" }
+
+    /// Full spoken form for VoiceOver and `AnnouncementBuilder`, e.g. "Five of Hearts".
+    public var spokenName: String { "\(rank.spokenName) of \(suit.spokenName)" }
 }

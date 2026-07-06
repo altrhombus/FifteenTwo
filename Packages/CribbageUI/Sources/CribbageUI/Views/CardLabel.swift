@@ -39,6 +39,11 @@ extension Suit {
 struct CardLabel: View {
     let card: Card
     var isSelected: Bool = false
+    /// State description read after the card's name — e.g. "selected for discard",
+    /// "played, count is 23", "not currently playable" — see docs/plan.md
+    /// ("Accessibility"): "every card is a distinct accessibility element with real
+    /// state," not just a name.
+    var accessibilityState: String?
 
     private var cornerPip: some View {
         VStack(spacing: 0) {
@@ -74,29 +79,8 @@ struct CardLabel: View {
                 )
         )
         .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-        .accessibilityLabel("\(card.rank.spokenName) of \(card.suit.spokenName)")
-    }
-}
-
-extension Rank {
-    var spokenName: String {
-        switch self {
-        case .ace: "Ace"
-        case .jack: "Jack"
-        case .queen: "Queen"
-        case .king: "King"
-        default: "\(rawValue)"
-        }
-    }
-}
-
-extension Suit {
-    var spokenName: String {
-        switch self {
-        case .clubs: "Clubs"
-        case .diamonds: "Diamonds"
-        case .hearts: "Hearts"
-        case .spades: "Spades"
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(card.spokenName)
+        .accessibilityValue(accessibilityState ?? "")
     }
 }

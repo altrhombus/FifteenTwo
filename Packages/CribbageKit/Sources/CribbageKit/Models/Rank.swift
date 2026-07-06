@@ -8,4 +8,17 @@ public enum Rank: Int, CaseIterable, Codable, Hashable, Sendable, Comparable {
     public var pipValue: Int { min(rawValue, 10) }
 
     public static func < (lhs: Rank, rhs: Rank) -> Bool { lhs.rawValue < rhs.rawValue }
+
+    /// Full word form for VoiceOver and other spoken/written contexts — lives here
+    /// (rather than only in CribbageUI) so the framework-free `AnnouncementBuilder` can
+    /// use it too.
+    public var spokenName: String {
+        switch self {
+        case .ace: "Ace"
+        case .jack: "Jack"
+        case .queen: "Queen"
+        case .king: "King"
+        default: "\(rawValue)"
+        }
+    }
 }

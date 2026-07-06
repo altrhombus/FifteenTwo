@@ -110,7 +110,9 @@ public final class GameSessionController {
     }
 
     private func apply(_ move: Move) {
+        let previous = state
         state = GameEngine.reduce(state, applying: move)
+        AccessibilityAnnouncer.announce(before: previous, after: state, move: move, listenerSeat: humanSeat)
         scheduleCPUMoveIfNeeded()
     }
 

@@ -101,6 +101,7 @@ private struct DiscardingView: View {
     // swaps out the oldest one, so every tap always visibly does something rather than
     // silently no-op'ing — see the "unpick cards" confusion this fixed.
     @State private var selected: [Card] = []
+    @Namespace private var rotorNamespace
 
     var body: some View {
         VStack(spacing: 16) {
@@ -114,9 +115,19 @@ private struct DiscardingView: View {
                     Button {
                         toggle(card)
                     } label: {
-                        CardLabel(card: card, isSelected: selected.contains(card))
+                        CardLabel(
+                            card: card,
+                            isSelected: selected.contains(card),
+                            accessibilityState: selected.contains(card) ? "selected for discard" : nil
+                        )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityRotorEntry(id: card.id, in: rotorNamespace)
+                }
+            }
+            .accessibilityRotor("Hand") {
+                ForEach(controller.state.hands[controller.humanSeat]) { card in
+                    AccessibilityRotorEntry(Text(card.spokenName), id: card.id, in: rotorNamespace)
                 }
             }
             Button("Discard") {
@@ -157,6 +168,8 @@ private struct CutStarterView: View {
 
 private struct PeggingView: View {
     let controller: GameSessionController
+    @Namespace private var pileRotorNamespace
+    @Namespace private var handRotorNamespace
 
     private var isHumanTurn: Bool { controller.state.turnToAct == controller.humanSeat }
 
@@ -165,17 +178,24 @@ private struct PeggingView: View {
             if let starter = controller.state.starter {
                 Label("Starter: \(starter.rank.symbol)\(starter.suit.symbol)", systemImage: "star.fill")
                     .font(.subheadline)
+                    .accessibilityLabel("Starter: \(starter.spokenName)")
             }
 
             Text("Count: \(controller.state.peggingCount)")
                 .font(.title2.monospacedDigit())
 
             HStack(spacing: 8) {
-                ForEach(controller.state.peggingPile) { card in
-                    CardLabel(card: card)
+                ForEach(Array(controller.state.peggingPile.enumerated()), id: \.element.id) { index, card in
+                    CardLabel(card: card, accessibilityState: "played, position \(index + 1)")
+                        .accessibilityRotorEntry(id: card.id, in: pileRotorNamespace)
                 }
             }
             .frame(minHeight: 60)
+            .accessibilityRotor("Pegging Events") {
+                ForEach(controller.state.peggingPile) { card in
+                    AccessibilityRotorEntry(Text(card.spokenName), id: card.id, in: pileRotorNamespace)
+                }
+            }
 
             Text("CPU has \(controller.state.peggingRemaining[controller.cpuSeat].count) card(s) left")
                 .font(.caption)
@@ -192,11 +212,20 @@ private struct PeggingView: View {
                     Button {
                         controller.play(card)
                     } label: {
-                        CardLabel(card: card)
-                            .opacity(legalPlays.contains(card) ? 1 : 0.35)
+                        CardLabel(
+                            card: card,
+                            accessibilityState: legalPlays.contains(card) ? "playable" : "not currently playable"
+                        )
+                        .opacity(legalPlays.contains(card) ? 1 : 0.35)
                     }
                     .buttonStyle(.plain)
                     .disabled(!isHumanTurn || !legalPlays.contains(card))
+                    .accessibilityRotorEntry(id: card.id, in: handRotorNamespace)
+                }
+            }
+            .accessibilityRotor("Hand") {
+                ForEach(controller.state.peggingRemaining[controller.humanSeat]) { card in
+                    AccessibilityRotorEntry(Text(card.spokenName), id: card.id, in: handRotorNamespace)
                 }
             }
 
