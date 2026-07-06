@@ -18,6 +18,13 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_fifteentwo-cr._tcp</string>
+		<string>_fifteentwo-cr._udp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Fifteen Two uses your local network to find nearby players for pass-and-play cribbage.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

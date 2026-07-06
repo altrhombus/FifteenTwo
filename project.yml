@@ -44,6 +44,14 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # Required since iOS 14 for Multipeer/Bonjour discovery (Phase 11) — without
+        # these, MCNearbyServiceAdvertiser/Browser silently fail to find any peers.
+        NSLocalNetworkUsageDescription: >-
+          Fifteen Two uses your local network to find nearby players for pass-and-play
+          cribbage.
+        NSBonjourServices:
+          - _fifteentwo-cr._tcp
+          - _fifteentwo-cr._udp
     entitlements:
       path: App-iOS/FifteenTwo.entitlements
       properties:
@@ -70,6 +78,13 @@ targets:
       - App-macOS
     info:
       path: App-macOS/Info.plist
+      properties:
+        NSLocalNetworkUsageDescription: >-
+          Fifteen Two uses your local network to find nearby players for pass-and-play
+          cribbage.
+        NSBonjourServices:
+          - _fifteentwo-cr._tcp
+          - _fifteentwo-cr._udp
     entitlements:
       path: App-macOS/FifteenTwo.entitlements
       properties:

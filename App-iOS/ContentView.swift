@@ -10,6 +10,9 @@ struct ContentView: View {
             Tab("Board", systemImage: "number") {
                 BoardView()
             }
+            Tab("Multiplayer", systemImage: "person.2.fill") {
+                MultiplayerGameView()
+            }
         }
         // On iPad's regular width class this renders as a sidebar instead of a bottom
         // tab bar (docs/plan.md Phase 9: "adaptive layouts") — free on iPhone too, since

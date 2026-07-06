@@ -8,12 +8,14 @@ import CribbageUI
 private enum Section: String, CaseIterable, Identifiable {
     case play = "Play"
     case board = "Board"
+    case multiplayer = "Multiplayer"
 
     var id: String { rawValue }
     var systemImage: String {
         switch self {
         case .play: "suit.spade.fill"
         case .board: "number"
+        case .multiplayer: "person.2.fill"
         }
     }
 }
@@ -34,6 +36,8 @@ struct ContentView: View {
                 GameView()
             case .board:
                 BoardView()
+            case .multiplayer:
+                MultiplayerGameView()
             }
         }
         .frame(minWidth: 900, minHeight: 640)

@@ -14,10 +14,11 @@ let package = Package(
     dependencies: [
         .package(path: "../CribbageKit"),
         .package(path: "../CribbageBoardKit"),
-        .package(path: "../CribbageData")
+        .package(path: "../CribbageData"),
+        .package(path: "../CribbageSync")
     ],
     targets: [
-        .target(name: "CribbageUI", dependencies: ["CribbageKit", "CribbageBoardKit", "CribbageData"]),
+        .target(name: "CribbageUI", dependencies: ["CribbageKit", "CribbageBoardKit", "CribbageData", "CribbageSync"]),
         .testTarget(name: "CribbageUITests", dependencies: ["CribbageUI"])
     ]
 )
