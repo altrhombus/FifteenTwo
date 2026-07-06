@@ -5,7 +5,7 @@ let package = Package(
     name: "CribbageVision",
     platforms: [
         .iOS(.v26),
-        .macOS(.v26),
+        .macOS(.v26)
     ],
     products: [
         .library(name: "CribbageVision", targets: ["CribbageVision"])
@@ -15,6 +15,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "CribbageVision", dependencies: ["CribbageKit"]),
-        .testTarget(name: "CribbageVisionTests", dependencies: ["CribbageVision"]),
+        .testTarget(name: "CribbageVisionTests", dependencies: ["CribbageVision"])
     ]
 )

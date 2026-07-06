@@ -1,0 +1,95 @@
+name: FifteenTwo
+options:
+  bundleIdPrefix: com.altrhombus
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+    watchOS: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    # Code signing disabled at the project level for now — Simulator builds don't need
+    # a team, and this gets reconfigured once the Apple Developer Program membership
+    # (needed for on-device Multipeer/Watch/SharePlay/Vision testing) is set up.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+
+packages:
+  CribbageKit:
+    path: Packages/CribbageKit
+  CribbageBoardKit:
+    path: Packages/CribbageBoardKit
+  CribbageSync:
+    path: Packages/CribbageSync
+  CribbageVision:
+    path: Packages/CribbageVision
+  CribbageData:
+    path: Packages/CribbageData
+  CribbageUI:
+    path: Packages/CribbageUI
+
+targets:
+  FifteenTwo-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - App-iOS
+    info:
+      path: App-iOS/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - package: CribbageKit
+      - package: CribbageBoardKit
+      - package: CribbageSync
+      - package: CribbageVision
+      - package: CribbageData
+      - package: CribbageUI
+
+  FifteenTwo-macOS:
+    type: application
+    platform: macOS
+    sources:
+      - App-macOS
+    info:
+      path: App-macOS/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo.mac
+        ENABLE_HARDENED_RUNTIME: "YES"
+    dependencies:
+      - package: CribbageKit
+      - package: CribbageBoardKit
+      - package: CribbageSync
+      - package: CribbageVision
+      - package: CribbageData
+      - package: CribbageUI
+
+  FifteenTwo-Watch:
+    # Standalone for now to keep Phase 1 scaffolding simple; reconfigured as a proper
+    # embedded companion to FifteenTwo-iOS (for WatchConnectivity pairing) in Phase 8.
+    type: application
+    platform: watchOS
+    sources:
+      - Watch
+    info:
+      path: Watch/Info.plist
+      properties:
+        WKApplication: true
+        WKRunsIndependentlyOfCompanionApp: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo.watchkitapp
+    dependencies:
+      - package: CribbageKit
+      - package: CribbageBoardKit

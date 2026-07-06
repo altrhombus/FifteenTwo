@@ -6,7 +6,7 @@ let package = Package(
     platforms: [
         .iOS(.v26),
         .macOS(.v26),
-        .watchOS(.v26),
+        .watchOS(.v26)
     ],
     products: [
         .library(name: "CribbageUI", targets: ["CribbageUI"])
@@ -14,10 +14,10 @@ let package = Package(
     dependencies: [
         .package(path: "../CribbageKit"),
         .package(path: "../CribbageBoardKit"),
-        .package(path: "../CribbageData"),
+        .package(path: "../CribbageData")
     ],
     targets: [
         .target(name: "CribbageUI", dependencies: ["CribbageKit", "CribbageBoardKit", "CribbageData"]),
-        .testTarget(name: "CribbageUITests", dependencies: ["CribbageUI"]),
+        .testTarget(name: "CribbageUITests", dependencies: ["CribbageUI"])
     ]
 )

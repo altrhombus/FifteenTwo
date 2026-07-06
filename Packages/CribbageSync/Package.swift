@@ -6,7 +6,7 @@ let package = Package(
     platforms: [
         .iOS(.v26),
         .macOS(.v26),
-        .watchOS(.v26),
+        .watchOS(.v26)
     ],
     products: [
         .library(name: "CribbageSync", targets: ["CribbageSync"])
@@ -16,6 +16,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "CribbageSync", dependencies: ["CribbageKit"]),
-        .testTarget(name: "CribbageSyncTests", dependencies: ["CribbageSync"]),
+        .testTarget(name: "CribbageSyncTests", dependencies: ["CribbageSync"])
     ]
 )

@@ -6,13 +6,13 @@ let package = Package(
     platforms: [
         .iOS(.v26),
         .macOS(.v26),
-        .watchOS(.v26),
+        .watchOS(.v26)
     ],
     products: [
         .library(name: "CribbageKit", targets: ["CribbageKit"])
     ],
     targets: [
         .target(name: "CribbageKit"),
-        .testTarget(name: "CribbageKitTests", dependencies: ["CribbageKit"]),
+        .testTarget(name: "CribbageKitTests", dependencies: ["CribbageKit"])
     ]
 )
