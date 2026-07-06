@@ -114,7 +114,23 @@ public final class GameSessionController {
         let previous = state
         state = GameEngine.reduce(state, applying: move)
         AccessibilityAnnouncer.announce(before: previous, after: state, move: move, listenerSeat: humanSeat)
+        reportGameCenterProgressIfNeeded(previous: previous)
         scheduleCPUMoveIfNeeded()
+    }
+
+    /// Compares against `previous` rather than switching on `move`/`state.phase` directly,
+    /// since a hand can end the game in the same `reduce` call that scores it — phase
+    /// sometimes jumps straight from `.pegging` to `.gameOver` with no visible `.counting`
+    /// step in between, so "did lastRoundSummary just change" is the reliable signal.
+    private func reportGameCenterProgressIfNeeded(previous: GameState) {
+        if let summary = state.lastRoundSummary, summary != previous.lastRoundSummary {
+            GameCenterReporter.reportHandCounted(summary, dealer: state.dealer, humanSeat: humanSeat)
+        }
+        if previous.phase != .gameOver, state.phase == .gameOver, let winner = state.winner {
+            GameCenterReporter.reportSoloGameCompleted(
+                winner: winner, humanSeat: humanSeat, skunkResult: state.skunkResult
+            )
+        }
     }
 
     /// Runs the same `DiscardSolver` analysis used for CPU moves against the human's own

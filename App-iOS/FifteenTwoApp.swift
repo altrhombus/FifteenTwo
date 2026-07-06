@@ -1,5 +1,6 @@
 import SwiftUI
 import CribbageData
+import CribbageUI
 
 @main
 struct FifteenTwoApp: App {
@@ -12,6 +13,10 @@ struct FifteenTwoApp: App {
     private let modelContainer = (try? CribbageDataStack.makeModelContainer())
         ?? (try? CribbageDataStack.makeModelContainer(inMemory: true))
         ?? { fatalError("Could not create even an in-memory ModelContainer") }()
+
+    init() {
+        GameCenterReporter.authenticateLocalPlayer()
+    }
 
     var body: some Scene {
         WindowGroup {

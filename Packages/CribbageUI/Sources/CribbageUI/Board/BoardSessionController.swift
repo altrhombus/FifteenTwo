@@ -37,6 +37,11 @@ public final class BoardSessionController {
     public func peg(playerIndex: Int, points: Int) {
         guard !match.isComplete else { return }
         match = BoardEngine.peg(match, playerIndex: playerIndex, points: points)
+        #if !os(watchOS)
+        if match.isComplete {
+            GameCenterReporter.reportBoardMatchCompleted(match)
+        }
+        #endif
         persist()
     }
 
