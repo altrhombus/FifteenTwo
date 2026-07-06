@@ -30,19 +30,21 @@ public enum Scorer {
     }
 
     /// Every subset of 2+ cards whose pip values sum to exactly 15, each worth 2 points.
+    /// Sums the subset before touching an array at all — this runs on the order of a
+    /// million times per `DiscardSolver` call, so building a `[Card]` combo for every
+    /// candidate subset (only to discard almost all of them) was the dominant cost.
     static func scoreFifteens(_ cards: [Card]) -> [ScoreEvent] {
         var events: [ScoreEvent] = []
+        let pips = cards.map(\.rank.pipValue)
         let n = cards.count
         for mask in 1..<(1 << n) where mask.nonzeroBitCount >= 2 {
             var sum = 0
-            var combo: [Card] = []
             for i in 0..<n where mask & (1 << i) != 0 {
-                sum += cards[i].rank.pipValue
-                combo.append(cards[i])
+                sum += pips[i]
             }
-            if sum == 15 {
-                events.append(ScoreEvent(kind: .fifteen, cards: combo, points: 2))
-            }
+            guard sum == 15 else { continue }
+            let combo = (0..<n).filter { mask & (1 << $0) != 0 }.map { cards[$0] }
+            events.append(ScoreEvent(kind: .fifteen, cards: combo, points: 2))
         }
         return events
     }
