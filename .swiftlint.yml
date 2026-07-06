@@ -2,3 +2,10 @@ excluded:
   - .build
   - "**/.build"
   - FifteenTwo.xcodeproj
+
+identifier_name:
+  excluded:
+    - i
+    - j
+    - n
+    - id
