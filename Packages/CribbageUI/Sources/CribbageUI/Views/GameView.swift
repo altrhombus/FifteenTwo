@@ -1,9 +1,10 @@
 import SwiftUI
 import CribbageKit
 
-/// The bare, standard-SwiftUI-components game screen — see docs/plan.md (Phase 3: "'Bare'
-/// here means built from standard SwiftUI system components... rather than custom-drawn
-/// chrome"). The Phase 4 visual polish pass adds Liquid Glass on top of this structure.
+/// Built on standard SwiftUI system components (Phase 3), with the Phase 4 visual polish
+/// pass layering Liquid Glass onto the floating chrome — the score HUD — per docs/plan.md's
+/// Design Language section: glass belongs on the navigation/chrome layer, while the cards
+/// and board stay opaque on the base layer for legibility.
 public struct GameView: View {
     @State private var controller: GameSessionController
 
@@ -77,6 +78,9 @@ private struct ScoreHeader: View {
                 isDealer: controller.state.dealer == controller.cpuSeat
             )
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func scoreColumn(title: String, score: Int, isDealer: Bool) -> some View {
