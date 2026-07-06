@@ -1,6 +1,7 @@
 #if !os(watchOS)
 import SwiftUI
 import CribbageKit
+import CribbageSync
 #if os(iOS)
 import UIKit
 #elseif os(macOS)
@@ -17,12 +18,27 @@ private func defaultDisplayName() -> String {
     #endif
 }
 
-/// Local pass-and-play over Multipeer — see docs/plan.md ("Multipeer pass-and-play").
-/// Multipeer itself doesn't work in Simulator (needs real hardware on both ends), so this
-/// view is built to be exercised solo up through the lobby/connection screen and verified
-/// end to end on real devices.
+private enum ConnectionStatus: Equatable {
+    case notConnected
+    case hostingMultipeer
+    case browsingMultipeer
+    case waitingForSharePlay
+    case connected
+}
+
+/// Local pass-and-play — see docs/plan.md ("Multipeer pass-and-play", "SharePlay"): both
+/// transports share the same `MultiplayerSessionController`/`GameEngine.reduce` game
+/// logic, so this view's only real job is the connection UX, which genuinely differs per
+/// transport (a host/join lobby for Multipeer vs. offering the activity during a FaceTime
+/// call for SharePlay). Neither transport works in Simulator (both need real hardware —
+/// SharePlay specifically needs an active FaceTime call between two different Apple IDs),
+/// so this is built to be exercised solo up through the lobby/connection screen and
+/// verified end to end on real devices.
 public struct MultiplayerGameView: View {
+    @State private var multipeerTransport: MultipeerGameTransport?
+    @State private var groupTransport: GroupActivityGameTransport?
     @State private var controller: MultiplayerSessionController?
+    @State private var connectionStatus: ConnectionStatus = .notConnected
     @State private var showingBrowser = false
     @State private var displayName = defaultDisplayName()
 
@@ -31,55 +47,86 @@ public struct MultiplayerGameView: View {
     public var body: some View {
         NavigationStack {
             Group {
-                if let controller {
-                    connectedContent(controller)
+                if let controller, connectionStatus == .connected {
+                    MultiplayerPlayView(controller: controller, onDisconnect: cancelConnecting)
+                } else if connectionStatus == .notConnected {
+                    LobbyView(
+                        displayName: $displayName,
+                        onHostMultipeer: hostMultipeer,
+                        onJoinMultipeer: joinMultipeer,
+                        onStartSharePlay: startSharePlay
+                    )
                 } else {
-                    LobbyView(displayName: $displayName, onHost: host, onJoin: join)
+                    WaitingToConnectView(status: connectionStatus, onCancel: cancelConnecting)
                 }
             }
             .navigationTitle("Pass and Play")
         }
         .sheet(isPresented: $showingBrowser) {
-            if let controller {
-                PeerBrowserView(browser: controller.browser, session: controller.session) {
+            if let multipeerTransport {
+                PeerBrowserView(browser: multipeerTransport.browser, session: multipeerTransport.session) {
                     showingBrowser = false
                 }
             }
         }
     }
 
-    @ViewBuilder
-    private func connectedContent(_ controller: MultiplayerSessionController) -> some View {
-        switch controller.connectionState {
-        case .notConnected, .hosting, .browsing:
-            WaitingToConnectView(controller: controller)
-        case .connected:
-            MultiplayerPlayView(controller: controller)
+    private func hostMultipeer() {
+        let transport = MultipeerGameTransport(displayName: displayName)
+        multipeerTransport = transport
+        connectionStatus = .hostingMultipeer
+        transport.onConnectedPeersChanged = { [weak transport] peerNames in
+            guard let transport, !peerNames.isEmpty else { return }
+            controller = MultiplayerSessionController(transport: transport, mySeat: .playerOne)
+            connectionStatus = .connected
         }
+        transport.startHosting()
     }
 
-    private func host() {
-        let controller = MultiplayerSessionController(displayName: displayName, mySeat: .playerOne)
-        self.controller = controller
-        controller.startHosting()
-    }
-
-    private func join() {
-        let controller = MultiplayerSessionController(displayName: displayName, mySeat: .playerTwo)
-        self.controller = controller
-        controller.startBrowsing()
+    private func joinMultipeer() {
+        let transport = MultipeerGameTransport(displayName: displayName)
+        multipeerTransport = transport
+        connectionStatus = .browsingMultipeer
+        transport.onConnectedPeersChanged = { [weak transport] peerNames in
+            guard let transport, !peerNames.isEmpty else { return }
+            controller = MultiplayerSessionController(transport: transport, mySeat: .playerTwo)
+            connectionStatus = .connected
+        }
         showingBrowser = true
+    }
+
+    private func startSharePlay() {
+        let transport = GroupActivityGameTransport()
+        groupTransport = transport
+        connectionStatus = .waitingForSharePlay
+        transport.observeSessions()
+        transport.onParticipantsChanged = { [weak transport] count in
+            guard let transport, count >= 2, let seat = transport.mySeat else { return }
+            controller = MultiplayerSessionController(transport: transport, mySeat: seat)
+            connectionStatus = .connected
+        }
+        Task { await transport.activate() }
+    }
+
+    private func cancelConnecting() {
+        multipeerTransport?.disconnect()
+        groupTransport?.leave()
+        multipeerTransport = nil
+        groupTransport = nil
+        controller = nil
+        connectionStatus = .notConnected
     }
 }
 
 private struct LobbyView: View {
     @Binding var displayName: String
-    let onHost: () -> Void
-    let onJoin: () -> Void
+    let onHostMultipeer: () -> Void
+    let onJoinMultipeer: () -> Void
+    let onStartSharePlay: () -> Void
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Play a real hand with someone else in the room, passing the device back and forth for pegging.")
+            Text("Play a real hand with someone else, either in the same room or together on FaceTime.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -88,28 +135,41 @@ private struct LobbyView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 280)
 
-            Button("Host a Game", systemImage: "antenna.radiowaves.left.and.right", action: onHost)
+            Button("Host a Game Nearby", systemImage: "antenna.radiowaves.left.and.right", action: onHostMultipeer)
                 .buttonStyle(.borderedProminent)
-            Button("Join a Game", systemImage: "magnifyingglass", action: onJoin)
+            Button("Join a Game Nearby", systemImage: "magnifyingglass", action: onJoinMultipeer)
                 .buttonStyle(.bordered)
+
+            Divider().frame(maxWidth: 280)
+
+            Button("Play over SharePlay", systemImage: "shareplay", action: onStartSharePlay)
+                .buttonStyle(.bordered)
+            Text("Requires an active FaceTime call with the other player.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding()
     }
 }
 
 private struct WaitingToConnectView: View {
-    let controller: MultiplayerSessionController
+    let status: ConnectionStatus
+    let onCancel: () -> Void
+
+    private var message: String {
+        switch status {
+        case .hostingMultipeer: "Waiting for someone to join…"
+        case .browsingMultipeer: "Looking for a nearby game…"
+        case .waitingForSharePlay: "Waiting for the other player to join over SharePlay…"
+        case .notConnected, .connected: ""
+        }
+    }
 
     var body: some View {
         VStack(spacing: 16) {
             ProgressView()
-            Text(controller.connectionState == .hosting
-                ? "Waiting for someone to join…"
-                : "Looking for a nearby game…")
-                .font(.headline)
-            Button("Cancel", role: .cancel) {
-                controller.disconnect()
-            }
+            Text(message).font(.headline)
+            Button("Cancel", role: .cancel, action: onCancel)
         }
         .padding()
     }
@@ -117,6 +177,7 @@ private struct WaitingToConnectView: View {
 
 private struct MultiplayerPlayView: View {
     let controller: MultiplayerSessionController
+    let onDisconnect: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -135,7 +196,7 @@ private struct MultiplayerPlayView: View {
             case .counting:
                 MultiplayerCountingView(controller: controller)
             case .gameOver:
-                MultiplayerGameOverView(controller: controller)
+                MultiplayerGameOverView(controller: controller, onDisconnect: onDisconnect)
             }
 
             Spacer()
@@ -145,229 +206,6 @@ private struct MultiplayerPlayView: View {
             if controller.state.phase == .dealing {
                 controller.dealIfMyTurn()
             }
-        }
-    }
-}
-
-private struct MultiplayerScoreHeader: View {
-    let controller: MultiplayerSessionController
-
-    var body: some View {
-        HStack {
-            scoreColumn(
-                title: "You",
-                score: controller.state.scores[controller.mySeat],
-                isDealer: controller.state.dealer == controller.mySeat
-            )
-            Spacer()
-            scoreColumn(
-                title: "Opponent",
-                score: controller.state.scores[controller.opponentSeat],
-                isDealer: controller.state.dealer == controller.opponentSeat
-            )
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private func scoreColumn(title: String, score: Int, isDealer: Bool) -> some View {
-        VStack {
-            Text(title).font(.headline)
-            Text("\(score)").font(.largeTitle.monospacedDigit())
-            if isDealer {
-                Text("Dealer").font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct MultiplayerDiscardingView: View {
-    let controller: MultiplayerSessionController
-    @State private var selected: [Card] = []
-    @State private var hasDiscarded = false
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Choose 2 cards to discard to the crib")
-                .font(.headline)
-            if hasDiscarded {
-                Text("Waiting for your opponent to discard…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            HStack(spacing: 8) {
-                ForEach(controller.state.hands[controller.mySeat]) { card in
-                    Button {
-                        toggle(card)
-                    } label: {
-                        CardLabel(
-                            card: card,
-                            isSelected: selected.contains(card),
-                            accessibilityState: selected.contains(card) ? "selected for discard" : nil
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(hasDiscarded)
-                }
-            }
-            Button("Discard") {
-                controller.discard(selected)
-                hasDiscarded = true
-            }
-            .disabled(selected.count != 2 || hasDiscarded)
-            .buttonStyle(.borderedProminent)
-        }
-    }
-
-    private func toggle(_ card: Card) {
-        if let index = selected.firstIndex(of: card) {
-            selected.remove(at: index)
-            return
-        }
-        selected.append(card)
-        if selected.count > 2 {
-            selected.removeFirst()
-        }
-    }
-}
-
-private struct MultiplayerCutStarterView: View {
-    let controller: MultiplayerSessionController
-
-    private var isMyCut: Bool { controller.state.dealer.opponent == controller.mySeat }
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Both hands are set.")
-                .font(.headline)
-            if isMyCut {
-                Button("Cut for Starter") {
-                    controller.cutForStarterIfMyTurn()
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                Text("Waiting for your opponent to cut the deck…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
-
-private struct MultiplayerPeggingView: View {
-    let controller: MultiplayerSessionController
-
-    private var isMyTurn: Bool { controller.state.turnToAct == controller.mySeat }
-
-    var body: some View {
-        VStack(spacing: 16) {
-            if let starter = controller.state.starter {
-                Label("Starter: \(starter.rank.symbol)\(starter.suit.symbol)", systemImage: "star.fill")
-                    .font(.subheadline)
-                    .accessibilityLabel("Starter: \(starter.spokenName)")
-            }
-
-            Text("Count: \(controller.state.peggingCount)")
-                .font(.title2.monospacedDigit())
-
-            HStack(spacing: 8) {
-                ForEach(controller.state.peggingPile) { card in
-                    CardLabel(card: card)
-                }
-            }
-            .frame(minHeight: 60)
-
-            Text("Opponent has \(controller.state.peggingRemaining[controller.opponentSeat].count) card(s) left")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Divider()
-
-            Text(isMyTurn ? "Your turn" : "Waiting for opponent…")
-                .font(.headline)
-
-            let legalPlays = controller.legalMyPlays
-            HStack(spacing: 8) {
-                ForEach(controller.state.peggingRemaining[controller.mySeat]) { card in
-                    Button {
-                        controller.play(card)
-                    } label: {
-                        CardLabel(
-                            card: card,
-                            accessibilityState: legalPlays.contains(card) ? "playable" : "not currently playable"
-                        )
-                        .opacity(legalPlays.contains(card) ? 1 : 0.35)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!isMyTurn || !legalPlays.contains(card))
-                }
-            }
-
-            if isMyTurn && legalPlays.isEmpty {
-                Text("No card you hold fits under 31 — say Go to pass.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Go") {
-                    controller.sayGo()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-    }
-}
-
-private struct MultiplayerCountingView: View {
-    let controller: MultiplayerSessionController
-
-    private var isMyDeal: Bool { controller.state.dealer == controller.mySeat }
-
-    var body: some View {
-        if let summary = controller.state.lastRoundSummary {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Hand Summary").font(.headline)
-                Text("Non-dealer's hand: \(summary.nonDealerHand.total) pts")
-                if let dealerHand = summary.dealerHand {
-                    Text("Dealer's hand: \(dealerHand.total) pts")
-                }
-                if let crib = summary.crib {
-                    Text("Crib: \(crib.total) pts")
-                }
-
-                Divider()
-                if isMyDeal {
-                    Button("Deal Next Hand") {
-                        controller.dealIfMyTurn()
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Text("Waiting for your opponent to deal…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-}
-
-private struct MultiplayerGameOverView: View {
-    let controller: MultiplayerSessionController
-
-    var body: some View {
-        VStack(spacing: 16) {
-            let youWon = controller.state.winner == controller.mySeat
-            Text(youWon ? "You win!" : "Your opponent wins")
-                .font(.largeTitle.bold())
-            if let skunk = controller.state.skunkResult, skunk != .normal {
-                Text(skunk == .doubleSkunk ? "Double skunk!" : "Skunk!")
-                    .font(.headline)
-                    .foregroundStyle(.orange)
-            }
-            Button("Disconnect") {
-                controller.disconnect()
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 }
