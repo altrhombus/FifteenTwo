@@ -223,12 +223,56 @@ private struct CountingView: View {
                 if let crib = summary.crib {
                     Text("Crib: \(crib.total) pts")
                 }
+
+                if let analysis = controller.lastDiscardAnalysis {
+                    Divider()
+                    DiscardAnalysisView(analysis: analysis)
+                }
+
                 Button("Deal Next Hand") {
                     controller.dealNextHand()
                 }
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+}
+
+/// The post-hand training breakdown: how the human's discard compares to every option
+/// `DiscardSolver` considered — see docs/plan.md ("post-game breakdown showing expected
+/// value of every discard choice you could've made").
+private struct DiscardAnalysisView: View {
+    let analysis: DiscardAnalysis
+
+    var body: some View {
+        if let chosen = analysis.chosenOption, let best = analysis.bestOption {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your Discard").font(.headline)
+                row(label: "You discarded", option: chosen)
+
+                if Set(chosen.discarded) == Set(best.discarded) {
+                    Text("That was the best possible discard!")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                } else {
+                    row(label: "Best discard", option: best)
+                    let delta = best.netExpectedValue - chosen.netExpectedValue
+                    Text("You left \(delta, specifier: "%.1f") expected points on the table.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
+    private func row(label: String, option: DiscardOption) -> some View {
+        HStack {
+            Text("\(label): \(option.discarded.map { "\($0.rank.symbol)\($0.suit.symbol)" }.joined(separator: " "))")
+            Spacer()
+            Text("\(option.netExpectedValue, specifier: "%.1f") pts")
+                .foregroundStyle(.secondary)
+        }
+        .font(.subheadline)
     }
 }
 

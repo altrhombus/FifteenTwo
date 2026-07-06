@@ -8,6 +8,20 @@ import CribbageKit
 ///
 /// CPU moves run off the main actor: a discard analysis is ~684,000 `Scorer` calls and
 /// takes over a second even in a release build, which would otherwise freeze the UI.
+/// The human's discard, ranked against every option `DiscardSolver` considered — the
+/// post-hand training breakdown per docs/plan.md ("post-game breakdown ... showing
+/// expected value of every discard choice").
+public struct DiscardAnalysis: Equatable, Sendable {
+    public let options: [DiscardOption] // all 15, sorted best first
+    public let chosen: [Card]
+
+    public var chosenOption: DiscardOption? {
+        options.first { Set($0.discarded) == Set(chosen) }
+    }
+
+    public var bestOption: DiscardOption? { options.first }
+}
+
 @Observable
 @MainActor
 public final class GameSessionController {
@@ -15,9 +29,11 @@ public final class GameSessionController {
     public let humanSeat: Seat
     public var difficulty: CPUDifficulty
     public private(set) var isCPUThinking = false
+    public private(set) var lastDiscardAnalysis: DiscardAnalysis?
     private let ruleset: Ruleset
     private var cpuRNG: SeededGenerator
     private var cpuTask: Task<Void, Never>?
+    private var analysisTask: Task<Void, Never>?
 
     public init(
         humanSeat: Seat = .playerOne,
@@ -40,13 +56,18 @@ public final class GameSessionController {
 
     public func newGame() {
         cpuTask?.cancel()
+        analysisTask?.cancel()
+        lastDiscardAnalysis = nil
         state = GameState(ruleset: ruleset, dealer: humanSeat, seed: .random(in: .min ... .max))
         cpuRNG = SeededGenerator(seed: state.seed &+ 1)
         startGame()
     }
 
     public func discard(_ cards: [Card]) {
+        let handBeforeDiscard = state.hands[humanSeat]
+        let isDealer = state.dealer == humanSeat
         apply(.discard(seat: humanSeat, cards: cards))
+        scheduleDiscardAnalysis(hand: handBeforeDiscard, chosen: cards, isDealer: isDealer)
     }
 
     public func cutForStarter() {
@@ -62,6 +83,7 @@ public final class GameSessionController {
     }
 
     public func dealNextHand() {
+        lastDiscardAnalysis = nil
         apply(.dealHand)
     }
 
@@ -72,6 +94,20 @@ public final class GameSessionController {
     private func apply(_ move: Move) {
         state = GameEngine.reduce(state, applying: move)
         scheduleCPUMoveIfNeeded()
+    }
+
+    /// Runs the same `DiscardSolver` analysis used for CPU moves against the human's own
+    /// hand, so the post-hand summary can show what was left on the table — independent
+    /// of `cpuTask` since this doesn't gate any game-state transition.
+    private func scheduleDiscardAnalysis(hand: [Card], chosen: [Card], isDealer: Bool) {
+        let rulesetSnapshot = ruleset
+        analysisTask = Task {
+            let options = await Task.detached(priority: .utility) {
+                DiscardSolver.bestDiscards(hand: hand, isDealer: isDealer, ruleset: rulesetSnapshot)
+            }.value
+            guard !Task.isCancelled else { return }
+            lastDiscardAnalysis = DiscardAnalysis(options: options, chosen: chosen)
+        }
     }
 
     private var cpuNeedsToAct: Bool {

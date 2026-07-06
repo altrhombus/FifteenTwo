@@ -65,4 +65,27 @@ struct GameSessionControllerTests {
             await Task.yield()
         }
     }
+
+    @Test func humanDiscardPopulatesTheTrainingAnalysis() async {
+        let controller = GameSessionController(humanSeat: .playerOne, difficulty: .beginner, seed: 123)
+        controller.startGame()
+        await waitForCPU(controller) // let the CPU discard first, doesn't affect this check
+
+        let hand = controller.state.hands[controller.humanSeat]
+        let discarded = Array(hand.prefix(2))
+        controller.discard(discarded)
+
+        var waited = 0
+        while controller.lastDiscardAnalysis == nil, waited < 400 {
+            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms — real elapsed time, unlike Task.yield()
+            waited += 1
+        }
+
+        let analysis = controller.lastDiscardAnalysis
+        #expect(analysis != nil)
+        #expect(analysis?.options.count == 15)
+        #expect(Set(analysis?.chosen ?? []) == Set(discarded))
+        #expect(analysis?.chosenOption != nil)
+        #expect(analysis?.bestOption == analysis?.options.first)
+    }
 }
