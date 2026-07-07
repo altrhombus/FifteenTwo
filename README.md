@@ -8,6 +8,19 @@ See [`docs/plan.md`](docs/plan.md) for the full architecture and build plan.
 
 Every phase in [`docs/plan.md`](docs/plan.md)'s build order is complete, MVP and Post-MVP alike: solo play against an exact-solver CPU, physical board mode, watchOS companion, adaptive iPad/Mac layouts, Game Center achievements/leaderboards, Multipeer + SharePlay pass-and-play, Vision hand-scanning, an App Group-backed widget + Live Activity for board matches, and Game Center turn-based async matchmaking. See Known Limitations below for what's still unverified on real hardware or otherwise pending.
 
+## For players
+
+Fifteen Two is meant to be as good for *learning* cribbage as it is for playing it, so a few things are worth calling out:
+
+- **The rules are exact, not approximate.** Scoring follows the American Cribbage Congress rules faithfully — fifteens, pairs, the run-multiplying double/triple/quadruple runs, the strict crib-flush rule (a four-card crib flush scores *nothing* unless the starter matches too), his nobs, his heels, and the easily-forgotten "one for last card" at the end of the play. If the app says a hand is worth 12, it's worth 12.
+- **The CPU plays optimally, not by rules of thumb.** Discards are chosen by an exact expected-value solver that averages every possible starter and opponent crib contribution; pegging uses a minimax search. The difficulty setting controls how often it picks from the very top of those rankings, so *Beginner* is genuinely beatable while *Expert* always makes the mathematically best move.
+- **Beginner Mode teaches you *why*.** Turn it on and every hand is itemized point by point ("6♣ 7♦ 8♥ = 15 for 2… 6-7-8 run for 3…"), including pegging and his heels, plus contextual strategy tips while you're discarding and pegging.
+- **Post-hand coaching.** After a hand you can see how your discard ranked against all 15 options by expected value — and "practice this exact hand again" re-deals the identical cards so you can try a different choice and compare.
+- **Muggins (optional).** Turn this house rule on and you count your own hands and crib; anything you undercount, your opponent can peg for themselves. It's the fastest way to get sharp at counting. (Off by default — counting is automatic.)
+- **Your house, your rules.** Settings let you change the target (121 or 61), the skunk / double-skunk lines, whether hitting exactly 31 scores 2, and muggins. Skunks and double skunks are detected and celebrated.
+- **Lots of ways to play.** Solo against the CPU; a fast scorekeeper for a real physical board (point your camera at your dealt hand and it reads the cards for you); local pass-and-play on one device; SharePlay over FaceTime; and asynchronous, take-your-turn-whenever matches via Game Center.
+- **Built for VoiceOver.** Plays, gos, points scored, and the final count are all announced aloud, so the game is fully playable without looking at the screen.
+
 ## Requirements
 
 - Xcode 26.3+
