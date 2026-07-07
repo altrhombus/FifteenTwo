@@ -23,6 +23,32 @@ public enum GameEngine {
         return state.peggingRemaining[seat].filter { state.peggingCount + $0.rank.pipValue <= 31 }
     }
 
+    /// Which seat needs to act next, in the strictly-serialized sense async play (Game
+    /// Center turn-based matches) needs — `nil` once the game is over. Solo and live
+    /// multiplayer don't need this: pegging already has `state.turnToAct`, and discarding
+    /// there allows both seats to act "simultaneously" since there's an always-on
+    /// connection. A store-and-forward match can only ever have one active participant,
+    /// so discarding (and every other phase) needs a strict order here — reusing the same
+    /// dealer-deals/non-dealer-cuts convention already established for live multiplayer's
+    /// one-shot moves, just applied consistently to discarding too.
+    public static func seatToActNext(in state: GameState) -> Seat? {
+        switch state.phase {
+        case .dealing:
+            return state.dealer
+        case .discarding:
+            let nonDealer = state.dealer.opponent
+            return state.hands[nonDealer].count == 6 ? nonDealer : state.dealer
+        case .cutStarter:
+            return state.dealer.opponent
+        case .pegging:
+            return state.turnToAct
+        case .counting:
+            return state.dealer
+        case .gameOver:
+            return nil
+        }
+    }
+
     // MARK: - Dealing
 
     private static func dealHand(_ state: GameState, seed: Seed256) -> GameState {

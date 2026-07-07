@@ -16,6 +16,9 @@ struct ContentView: View {
             Tab("Scan", systemImage: "camera.viewfinder") {
                 ScanView()
             }
+            Tab("Turn-Based", systemImage: "hourglass") {
+                TurnBasedGamesView()
+            }
         }
         // On iPad's regular width class this renders as a sidebar instead of a bottom
         // tab bar (docs/plan.md Phase 9: "adaptive layouts") — free on iPhone too, since
