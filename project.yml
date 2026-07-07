@@ -61,6 +61,12 @@ targets:
       path: App-iOS/FifteenTwo.entitlements
       properties:
         com.apple.developer.game-center: true
+        # Post-MVP: Widgets/Live Activities. Per docs/plan.md, this is set up before any
+        # widget exists so SwiftData already lives in the shared container -- retrofitting
+        # an App Group onto an existing store later needs a data migration, doing it now
+        # doesn't (there's no shipped user data yet).
+        com.apple.security.application-groups:
+          - group.com.altrhombus.FifteenTwo
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo
@@ -73,6 +79,9 @@ targets:
       - package: CribbageData
       - package: CribbageUI
       - target: FifteenTwo-Watch
+        embed: true
+        codeSignOnCopy: true
+      - target: FifteenTwoWidgets
         embed: true
         codeSignOnCopy: true
 
@@ -94,6 +103,10 @@ targets:
       path: App-macOS/FifteenTwo.entitlements
       properties:
         com.apple.developer.game-center: true
+        # Not adding com.apple.security.application-groups here yet: on macOS this
+        # interacts with App Sandbox (which this target doesn't currently enable), and
+        # the widget itself is iOS-only for now -- scoping the App Group to iOS avoids an
+        # unverified sandboxing combination for no current benefit.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo.mac
@@ -105,6 +118,36 @@ targets:
       - package: CribbageVision
       - package: CribbageData
       - package: CribbageUI
+
+  FifteenTwoWidgets:
+    # Post-MVP: Widgets/Live Activities. Embedded in FifteenTwo-iOS (above); reads the
+    # same App-Group-shared SwiftData store the app writes to. iOS-only for now — see
+    # project.yml's note on FifteenTwo-macOS about why the App Group isn't there yet.
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widgets
+    info:
+      path: Widgets/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widgets/FifteenTwoWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.altrhombus.FifteenTwo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.altrhombus.FifteenTwo.widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: "YES"
+    dependencies:
+      - package: CribbageKit
+      - package: CribbageBoardKit
+      - package: CribbageData
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
 
   FifteenTwo-Watch:
     # A proper companion to FifteenTwo-iOS (embedded above) for WatchConnectivity
