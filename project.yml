@@ -57,6 +57,8 @@ targets:
         NSCameraUsageDescription: >-
           Fifteen Two uses the camera to scan a real dealt hand of cards for discard
           analysis.
+        # Required for the board-match Live Activity (Post-MVP Widgets/Live Activities).
+        NSSupportsLiveActivities: true
     entitlements:
       path: App-iOS/FifteenTwo.entitlements
       properties:
@@ -148,6 +150,7 @@ targets:
       - package: CribbageData
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+      - sdk: ActivityKit.framework
 
   FifteenTwo-Watch:
     # A proper companion to FifteenTwo-iOS (embedded above) for WatchConnectivity

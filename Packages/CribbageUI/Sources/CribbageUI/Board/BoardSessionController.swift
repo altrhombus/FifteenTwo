@@ -67,6 +67,7 @@ public final class BoardSessionController {
         try? store.save(match)
         #if os(iOS)
         watchSync?.send(match)
+        BoardMatchActivityManager.sync(with: match)
         #endif
     }
 }

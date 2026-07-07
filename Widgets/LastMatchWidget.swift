@@ -96,5 +96,6 @@ struct LastMatchWidget: Widget {
 struct FifteenTwoWidgetsBundle: WidgetBundle {
     var body: some Widget {
         LastMatchWidget()
+        BoardMatchLiveActivity()
     }
 }
