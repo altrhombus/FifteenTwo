@@ -10,6 +10,7 @@ private enum Section: String, CaseIterable, Identifiable {
     case board = "Board"
     case multiplayer = "Multiplayer"
     case scan = "Scan"
+    case settings = "Settings"
 
     var id: String { rawValue }
     var systemImage: String {
@@ -18,12 +19,14 @@ private enum Section: String, CaseIterable, Identifiable {
         case .board: "number"
         case .multiplayer: "person.2.fill"
         case .scan: "camera.viewfinder"
+        case .settings: "gearshape"
         }
     }
 }
 
 struct ContentView: View {
     @State private var selection: Section? = .play
+    @State private var settings = SettingsStore()
 
     var body: some View {
         NavigationSplitView {
@@ -35,13 +38,15 @@ struct ContentView: View {
         } detail: {
             switch selection {
             case .play, .none:
-                GameView()
+                GameView(settings: settings)
             case .board:
                 BoardView()
             case .multiplayer:
                 MultiplayerGameView()
             case .scan:
                 ScanView()
+            case .settings:
+                SettingsView(settings: settings)
             }
         }
         .frame(minWidth: 900, minHeight: 640)

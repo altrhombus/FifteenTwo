@@ -2,10 +2,12 @@ import SwiftUI
 import CribbageUI
 
 struct ContentView: View {
+    @State private var settings = SettingsStore()
+
     var body: some View {
         TabView {
             Tab("Play", systemImage: "suit.spade.fill") {
-                GameView()
+                GameView(settings: settings)
             }
             Tab("Board", systemImage: "number") {
                 BoardView()
@@ -18,6 +20,9 @@ struct ContentView: View {
             }
             Tab("Turn-Based", systemImage: "hourglass") {
                 TurnBasedGamesView()
+            }
+            Tab("Settings", systemImage: "gearshape") {
+                SettingsView(settings: settings)
             }
         }
         // On iPad's regular width class this renders as a sidebar instead of a bottom

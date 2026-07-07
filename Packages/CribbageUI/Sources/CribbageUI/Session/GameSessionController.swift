@@ -31,7 +31,11 @@ public final class GameSessionController {
     public var difficulty: CPUDifficulty
     public private(set) var isCPUThinking = false
     public private(set) var lastDiscardAnalysis: DiscardAnalysis?
-    private let ruleset: Ruleset
+    /// Settable (not just set at init) so a Settings change can take effect on the next
+    /// `newGame()`/`dealNextHand()` — it deliberately doesn't retroactively alter a hand
+    /// already in progress, since `state` only picks up the current value the next time
+    /// it's reconstructed.
+    public var ruleset: Ruleset
     /// The CPU's own move-sampling randomness — deliberately independent of the per-hand
     /// deal `Seed256`, which is the one that matters for fairness/replay (see
     /// docs/plan.md, "RNG & Fairness"). Nothing about how the CPU plays needs to be
