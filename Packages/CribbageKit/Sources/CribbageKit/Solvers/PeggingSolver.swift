@@ -145,7 +145,14 @@ public enum PeggingSolver {
 
         let events = GameEngine.peggingScoreForLatestPlay(pile: next.pile, count: next.count, ruleset: ruleset)
         let points = events.reduce(0) { $0 + $1.points }
-        let signedPoints = mine ? points : -points
+        var signedPoints = mine ? points : -points
+
+        // "One for last card": if this play empties both hands without hitting 31, the
+        // player of the final card pegs 1. Mirrors `GameEngine.playCard` so the search
+        // values the endgame (e.g. holding a card to guarantee the last card) correctly.
+        if next.mine.isEmpty && next.theirs.isEmpty && next.count != 31 {
+            signedPoints += mine ? 1 : -1
+        }
 
         if next.count == 31 {
             next.pile = []

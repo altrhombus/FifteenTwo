@@ -16,4 +16,12 @@ public enum Move: Codable, Equatable, Sendable {
     case playCard(seat: Seat, card: Card)
     /// Declares that `seat` has no legal play remaining at the current count.
     case sayGo(seat: Seat)
+    /// Muggins only: `seat` (the owner of the current counting item) claims `points` for
+    /// it. Awarded up to the item's true value; any shortfall opens a muggins window.
+    case claimScore(seat: Seat, points: Int)
+    /// Muggins only: `seat` (the opponent of the item's owner) pegs the unclaimed
+    /// shortfall on the item the owner just under-counted.
+    case callMuggins(seat: Seat)
+    /// Muggins only: `seat` declines the open muggins window, letting the missed points go.
+    case passMuggins(seat: Seat)
 }

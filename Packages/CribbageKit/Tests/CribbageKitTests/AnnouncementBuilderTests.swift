@@ -135,6 +135,42 @@ struct AnnouncementBuilderTests {
         #expect(!lines.contains("You score 8 points."))
     }
 
+    @Test func finalPlayPointsIncludingLastCardAreAnnouncedBeforeTheCountingSummary() {
+        func breakdown(_ points: Int) -> ScoreBreakdown {
+            ScoreBreakdown(
+                fifteens: [ScoreEvent(kind: .fifteen, cards: [], points: points)],
+                pairs: [], runs: [], flush: [], nobs: []
+            )
+        }
+
+        var before = GameState(dealer: .playerTwo) // playerOne is non-dealer
+        before.phase = .pegging
+        var after = before
+        after.phase = .counting
+        // The final play scored a run of 3 and 1 for last card = 4 on the play.
+        after.peggingEvents = PerSeat(
+            playerOne: [
+                ScoreEvent(kind: .run, cards: [], points: 3),
+                ScoreEvent(kind: .go, cards: [], points: 1)
+            ],
+            playerTwo: []
+        )
+        after.scores = PerSeat(playerOne: 4, playerTwo: 0)
+        after.lastRoundSummary = RoundSummary(
+            nonDealerHand: breakdown(0), dealerHand: breakdown(0), crib: breakdown(0),
+            starter: Card(rank: .two, suit: .clubs), seed: Seed256(a: 1, b: 1, c: 1, d: 1)
+        )
+
+        let lines = AnnouncementBuilder.announcements(
+            before: before, after: after,
+            move: .playCard(seat: .playerOne, card: Card(rank: .nine, suit: .clubs)),
+            listenerSeat: .playerOne
+        )
+
+        #expect(lines.contains("You score 4 points on the play."))
+        #expect(lines.contains("Your hand scores 0."))
+    }
+
     // MARK: - Game over
 
     @Test func gameOverAnnouncesWinLossAndSkunk() {

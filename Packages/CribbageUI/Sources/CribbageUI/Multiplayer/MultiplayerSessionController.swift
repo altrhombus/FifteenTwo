@@ -67,6 +67,31 @@ public final class MultiplayerSessionController {
         apply(.sayGo(seat: mySeat), isRemote: false)
     }
 
+    // MARK: - Muggins (interactive counting)
+
+    /// The counting decision currently owed by this device, if any.
+    public var myPendingCount: PendingCount? {
+        guard state.phase == .counting, let pending = state.pendingCount, pending.actor == mySeat else {
+            return nil
+        }
+        return pending
+    }
+
+    public func claimScore(_ points: Int) {
+        guard myPendingCount?.stage == .awaitingClaim else { return }
+        apply(.claimScore(seat: mySeat, points: points), isRemote: false)
+    }
+
+    public func callMuggins() {
+        guard myPendingCount?.stage == .awaitingMuggins else { return }
+        apply(.callMuggins(seat: mySeat), isRemote: false)
+    }
+
+    public func passMuggins() {
+        guard myPendingCount?.stage == .awaitingMuggins else { return }
+        apply(.passMuggins(seat: mySeat), isRemote: false)
+    }
+
     private func apply(_ move: Move, isRemote: Bool) {
         let previous = state
         state = GameEngine.reduce(state, applying: move)

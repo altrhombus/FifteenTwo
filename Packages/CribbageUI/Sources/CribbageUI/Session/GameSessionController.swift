@@ -110,6 +110,34 @@ public final class GameSessionController {
         apply(.dealHand(seed: .random()))
     }
 
+    // MARK: - Muggins (interactive counting)
+
+    /// The counting decision currently owed by the human, if any — drives the muggins UI.
+    public var humanPendingCount: PendingCount? {
+        guard state.phase == .counting, let pending = state.pendingCount, pending.actor == humanSeat else {
+            return nil
+        }
+        return pending
+    }
+
+    /// The human claims `points` for the counting item they currently own.
+    public func claimScore(_ points: Int) {
+        guard humanPendingCount?.stage == .awaitingClaim else { return }
+        apply(.claimScore(seat: humanSeat, points: points))
+    }
+
+    /// The human takes the points the opponent left unclaimed on the current item.
+    public func callMuggins() {
+        guard humanPendingCount?.stage == .awaitingMuggins else { return }
+        apply(.callMuggins(seat: humanSeat))
+    }
+
+    /// The human declines the open muggins window.
+    public func passMuggins() {
+        guard humanPendingCount?.stage == .awaitingMuggins else { return }
+        apply(.passMuggins(seat: humanSeat))
+    }
+
     public var legalHumanPlays: [Card] {
         GameEngine.legalPlays(for: humanSeat, in: state)
     }
@@ -155,12 +183,27 @@ public final class GameSessionController {
         switch state.phase {
         case .discarding: state.hands[cpuSeat].count == 6
         case .pegging: state.turnToAct == cpuSeat
+        case .counting: state.pendingCount?.actor == cpuSeat
         default: false
         }
     }
 
     private func scheduleCPUMoveIfNeeded() {
         guard cpuNeedsToAct else { return }
+
+        // Interactive counting (muggins): the CPU counts its own hands perfectly and always
+        // catches a shortfall it's watching. These are instant — no solver, no off-main
+        // work — so apply directly; `apply` re-invokes this, walking through the CPU's
+        // counting steps until it's the human's turn or the show is done.
+        if state.phase == .counting, let pending = state.pendingCount {
+            switch pending.stage {
+            case .awaitingClaim:
+                apply(.claimScore(seat: cpuSeat, points: pending.trueValue))
+            case .awaitingMuggins:
+                apply(.callMuggins(seat: cpuSeat))
+            }
+            return
+        }
 
         let snapshot = state
         let seat = cpuSeat
@@ -199,8 +242,15 @@ public final class GameSessionController {
             return (.discard(seat: seat, cards: discard), rng)
 
         case .pegging:
+            // Cards that genuinely could be in the opponent's remaining hand: exclude our
+            // own remaining cards, the starter, everything already on the pile, and the
+            // crib — none of the four crib cards can be in play, and the CPU knows the two
+            // it discarded there, so leaving them in would sample impossible opponent hands.
             let unseen = Deck.standard52.filter {
-                !state.peggingRemaining[seat].contains($0) && $0 != state.starter && !state.peggingPile.contains($0)
+                !state.peggingRemaining[seat].contains($0)
+                    && $0 != state.starter
+                    && !state.peggingPile.contains($0)
+                    && !state.crib.contains($0)
             }
             let card = SolverCPU.choosePeggingPlay(
                 mine: state.peggingRemaining[seat],

@@ -14,20 +14,24 @@ struct PeggingSolverTests {
         )
         #expect(ranked.count == 2)
         #expect(ranked[0].card == Card(rank: .nine, suit: .clubs))
-        #expect(ranked[0].netScore == 0)
+        // Leading 9: they play their forced 10 (no score), I play my 5 as the last card of
+        // the phase for +1. Leading 5: they hit 15 for 2 against me, then I take last card
+        // for +1 → net -1. The +1 in each line is "one for last card".
+        #expect(ranked[0].netScore == 1)
         #expect(ranked[1].card == Card(rank: .five, suit: .spades))
-        #expect(ranked[1].netScore == -2)
+        #expect(ranked[1].netScore == -1)
     }
 
     @Test func bothHandsSingleCardForcedSequenceScoresTheFifteenCorrectly() {
-        // I play 7, they're forced to play 8 (their only card) making 15 — 2 points to them.
+        // I play 7, they're forced to play 8 (their only card) making 15 — 2 points to them,
+        // plus 1 for last card (their 8 is the phase's final card): net -3 to me.
         let option = PeggingSolver.bestPlay(
             mine: [Card(rank: .seven, suit: .spades)],
             theirs: [Card(rank: .eight, suit: .clubs)],
             pile: []
         )
         #expect(option.card == Card(rank: .seven, suit: .spades))
-        #expect(option.netScore == -2)
+        #expect(option.netScore == -3)
     }
 
     @Test func choosesTheLeadThatAvoidsGiftingAnEasyFifteen() {
@@ -38,21 +42,22 @@ struct PeggingSolverTests {
             pile: []
         )
         #expect(option.card == Card(rank: .nine, suit: .clubs))
-        #expect(option.netScore == 0)
+        #expect(option.netScore == 1) // avoids the 15 and takes the last-card point
     }
 
     @Test func noLegalPlayReturnsNilCardAndTracesTheForcedDoubleGoAndReset() {
         // Both hold a king (pip 10) at count 25 — neither can play (would bust to 35).
         // The double-go resets to 0; I'm forced to lead my king into their matching
-        // king, which pairs — 2 points to them. No "go" point either way since nobody
-        // played a card during the go itself.
+        // king, which pairs — 2 points to them. No "go" point for the double-go itself
+        // (nobody played a card during it), but their king is the phase's last card, so
+        // they also peg 1 for last card: net -3 to me.
         let option = PeggingSolver.bestPlay(
             mine: [Card(rank: .king, suit: .spades)],
             theirs: [Card(rank: .king, suit: .clubs)],
             pile: [Card(rank: .nine, suit: .hearts), Card(rank: .king, suit: .diamonds), Card(rank: .six, suit: .clubs)]
         )
         #expect(option.card == nil)
-        #expect(option.netScore == -2)
+        #expect(option.netScore == -3)
     }
 
     @Test func liveSamplingReturnsALegalCardFromMyHand() {

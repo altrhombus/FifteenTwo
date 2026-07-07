@@ -30,10 +30,20 @@ public struct GameState: Codable, Equatable, Sendable {
     /// Who played the most recent card in the current pegging run — needed to award
     /// the "go" point, since it can't be reliably reconstructed after the fact.
     public var lastCardPlayedBy: Seat?
+    /// Every pegging point each seat has scored this hand (15s, 31s, pairs, runs, and the
+    /// "go"/last-card point), accumulated so Beginner Mode can itemize pegging the same way
+    /// it itemizes the show. Reset each deal.
+    public var peggingEvents: PerSeat<[ScoreEvent]>
+    /// The dealer's "his heels" cut bonus this hand, if the starter was a jack — kept as a
+    /// real `ScoreEvent` (not just a silent +2) so it can be surfaced in the breakdown.
+    public var hisHeelsEvent: ScoreEvent?
 
     public var scores: PerSeat<Int>
     public var lastRoundSummary: RoundSummary?
     public var winner: Seat?
+    /// The counting decision currently owed, when `ruleset.mugginsEnabled` makes the show
+    /// interactive. `nil` whenever muggins is off, or once a hand has been fully counted.
+    public var pendingCount: PendingCount?
 
     public init(ruleset: Ruleset = .standard, dealer: Seat = .playerOne) {
         self.ruleset = ruleset
@@ -51,9 +61,12 @@ public struct GameState: Codable, Equatable, Sendable {
         self.turnToAct = dealer.opponent
         self.goSeat = nil
         self.lastCardPlayedBy = nil
+        self.peggingEvents = PerSeat(playerOne: [], playerTwo: [])
+        self.hisHeelsEvent = nil
         self.scores = PerSeat(playerOne: 0, playerTwo: 0)
         self.lastRoundSummary = nil
         self.winner = nil
+        self.pendingCount = nil
     }
 
     public var skunkResult: SkunkResult? {

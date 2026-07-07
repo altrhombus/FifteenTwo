@@ -90,6 +90,31 @@ public final class TurnBasedMatchController {
         await apply(.sayGo(seat: mySeat))
     }
 
+    // MARK: - Muggins (interactive counting)
+
+    /// The counting decision owed by the local player, if it's their turn in the show.
+    public var myPendingCount: PendingCount? {
+        guard state.phase == .counting, let pending = state.pendingCount, pending.actor == mySeat else {
+            return nil
+        }
+        return pending
+    }
+
+    public func claimScore(_ points: Int) async {
+        guard myPendingCount?.stage == .awaitingClaim else { return }
+        await apply(.claimScore(seat: mySeat, points: points))
+    }
+
+    public func callMuggins() async {
+        guard myPendingCount?.stage == .awaitingMuggins else { return }
+        await apply(.callMuggins(seat: mySeat))
+    }
+
+    public func passMuggins() async {
+        guard myPendingCount?.stage == .awaitingMuggins else { return }
+        await apply(.passMuggins(seat: mySeat))
+    }
+
     private func apply(_ move: Move) async {
         state = GameEngine.reduce(state, applying: move)
         guard let data = try? JSONEncoder().encode(state) else { return }

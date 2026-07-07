@@ -177,7 +177,22 @@ struct MultiplayerCountingView: View {
     private var isMyDeal: Bool { controller.state.dealer == controller.mySeat }
 
     var body: some View {
-        if let summary = controller.state.lastRoundSummary {
+        if controller.state.pendingCount != nil {
+            // Muggins show in progress — count, or wait for the opponent to.
+            if let pending = controller.myPendingCount {
+                MugginsCountingContent(
+                    pending: pending,
+                    itemCards: cardsForCountingItem(pending.item, in: controller.state),
+                    starter: controller.state.starter,
+                    onClaim: { controller.claimScore($0) },
+                    onMuggins: { controller.callMuggins() },
+                    onPass: { controller.passMuggins() }
+                )
+            } else {
+                Label("Waiting for your opponent to count…", systemImage: "hourglass")
+                    .foregroundStyle(.secondary)
+            }
+        } else if let summary = controller.state.lastRoundSummary {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Hand Summary").font(.headline)
                 Text("Non-dealer's hand: \(summary.nonDealerHand.total) pts")

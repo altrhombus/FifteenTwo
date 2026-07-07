@@ -129,6 +129,30 @@ struct TurnBasedHandSummaryView: View {
                         .font(.headline)
                         .foregroundStyle(.orange)
                 }
+            } else if controller.state.pendingCount != nil {
+                if let pending = controller.myPendingCount {
+                    MugginsCountingContent(
+                        pending: pending,
+                        itemCards: cardsForCountingItem(pending.item, in: controller.state),
+                        starter: controller.state.starter,
+                        onClaim: { points in
+                            isSubmitting = true
+                            Task { await controller.claimScore(points); onSubmitted() }
+                        },
+                        onMuggins: {
+                            isSubmitting = true
+                            Task { await controller.callMuggins(); onSubmitted() }
+                        },
+                        onPass: {
+                            isSubmitting = true
+                            Task { await controller.passMuggins(); onSubmitted() }
+                        }
+                    )
+                    .disabled(isSubmitting)
+                } else {
+                    Label("Waiting for your opponent to count…", systemImage: "hourglass")
+                        .foregroundStyle(.secondary)
+                }
             } else if let summary = controller.state.lastRoundSummary {
                 Text("Hand Summary").font(.headline)
                 Text("Non-dealer's hand: \(summary.nonDealerHand.total) pts")

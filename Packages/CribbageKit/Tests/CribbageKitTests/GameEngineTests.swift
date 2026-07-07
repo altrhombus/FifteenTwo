@@ -72,9 +72,43 @@ struct GameEngineTests {
 
         #expect(next.starter == Card(rank: .jack, suit: .diamonds))
         #expect(next.scores.playerOne == 2) // playerOne is the dealer
+        #expect(next.hisHeelsEvent?.kind == .hisHeels) // recorded as a real event, not a silent +2
+        #expect(next.hisHeelsEvent?.points == 2)
         #expect(next.phase == .pegging)
         #expect(next.turnToAct == .playerTwo) // non-dealer leads pegging
         #expect(next.peggingRemaining.playerOne.count == 4)
+    }
+
+    // MARK: - "One for last card"
+
+    @Test func playingTheFinalCardBelowThirtyOnePegsOneForLastCard() {
+        var state = GameState(dealer: .playerTwo)
+        // A verified zero-scoring hand (with a non-jack starter) for both seats and the
+        // crib, so the only points in play come from pegging.
+        let zeroScoringHand = [
+            Card(rank: .king, suit: .spades), Card(rank: .two, suit: .clubs),
+            Card(rank: .four, suit: .diamonds), Card(rank: .six, suit: .hearts)
+        ]
+        state.hands = PerSeat(playerOne: zeroScoringHand, playerTwo: zeroScoringHand)
+        state.crib = zeroScoringHand
+        state.starter = Card(rank: .queen, suit: .spades)
+        state.currentSeed = testSeed()
+        state.phase = .pegging
+        state.peggingRemaining = PerSeat(
+            playerOne: [Card(rank: .three, suit: .spades)],
+            playerTwo: [Card(rank: .eight, suit: .clubs)]
+        )
+        state.turnToAct = .playerOne
+
+        var next = GameEngine.reduce(state, applying: .playCard(seat: .playerOne, card: Card(rank: .three, suit: .spades)))
+        #expect(next.scores.playerOne == 0) // count is 3, playerTwo still holds a card
+
+        // count becomes 11 (no 15/31/pair/run), but playerTwo played the phase's last card.
+        next = GameEngine.reduce(next, applying: .playCard(seat: .playerTwo, card: Card(rank: .eight, suit: .clubs)))
+        #expect(next.phase == .counting)
+        #expect(next.scores.playerTwo == 1) // the sole point this hand is 1 for last card
+        #expect(next.scores.playerOne == 0)
+        #expect(next.lastRoundSummary?.dealerPegging.contains { $0.kind == .go && $0.points == 1 } == true)
     }
 
     // MARK: - Pegging scoring (isolated, via the pure scoring helper)
@@ -230,9 +264,10 @@ struct GameEngineTests {
         #expect(next.turnToAct == .playerOne)
 
         // Ranks in the pile so far: ten(10), jack(11); playing nine(9) completes a run of
-        // three consecutive ranks {9,10,11} for 3 points, and empties both hands.
+        // three consecutive ranks {9,10,11} for 3 points, and empties both hands. Playing
+        // the final card of the phase (count 29, not 31) also pegs 1 for last card, so 4.
         next = GameEngine.reduce(next, applying: .playCard(seat: .playerOne, card: Card(rank: .nine, suit: .clubs)))
-        #expect(next.scores.playerOne == 3)
+        #expect(next.scores.playerOne == 4)
         #expect(next.phase == .counting)
         #expect(next.peggingRemaining.playerOne.isEmpty)
         #expect(next.peggingRemaining.playerTwo.isEmpty)

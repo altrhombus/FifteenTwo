@@ -11,4 +11,10 @@ public struct RoundSummary: Codable, Equatable, Sendable {
     /// which gets overwritten by the next deal) so "practice this exact hand again" can
     /// still find it after the hand is over.
     public var seed: Seed256
+    /// The dealer's "his heels" cut bonus (2 for a jack starter), if any — defaulted so
+    /// existing callers that predate pegging itemization keep compiling.
+    public var hisHeels: ScoreEvent? = nil
+    /// Pegging points scored during the play, per seat, in the order they occurred.
+    public var nonDealerPegging: [ScoreEvent] = []
+    public var dealerPegging: [ScoreEvent] = []
 }

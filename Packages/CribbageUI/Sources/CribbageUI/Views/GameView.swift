@@ -283,10 +283,24 @@ private struct CountingView: View {
     let beginnerModeEnabled: Bool
 
     var body: some View {
-        if let summary = controller.state.lastRoundSummary {
+        // Muggins makes the show interactive — while a count is pending, the itemized
+        // summary is withheld (it would give away the answer) and the player counts instead.
+        if controller.state.pendingCount != nil {
+            MugginsCountingView(controller: controller)
+        } else if let summary = controller.state.lastRoundSummary {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Hand Summary").font(.headline)
                 if beginnerModeEnabled {
+                    let nonDealerPegging = summary.nonDealerPegging
+                    // His heels is a dealer point taken at the cut — group it with the
+                    // dealer's pegging so every play-phase point is accounted for.
+                    let dealerPegging = (summary.hisHeels.map { [$0] } ?? []) + summary.dealerPegging
+                    if !nonDealerPegging.isEmpty {
+                        ItemizedScoreView(title: "Non-dealer's pegging", events: nonDealerPegging)
+                    }
+                    if !dealerPegging.isEmpty {
+                        ItemizedScoreView(title: "Dealer's pegging", events: dealerPegging)
+                    }
                     ItemizedScoreView(title: "Non-dealer's hand", breakdown: summary.nonDealerHand)
                     if let dealerHand = summary.dealerHand {
                         ItemizedScoreView(title: "Dealer's hand", breakdown: dealerHand)
@@ -319,6 +333,30 @@ private struct CountingView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
+        }
+    }
+}
+
+/// The interactive muggins show: the player counts the item they own, and the game pegs
+/// any points they miss for the opponent. In solo play the CPU counts perfectly, so the
+/// player only ever sees the "claim your count" step (and gets mugginsed if they under-count).
+private struct MugginsCountingView: View {
+    let controller: GameSessionController
+
+    var body: some View {
+        if let pending = controller.humanPendingCount {
+            MugginsCountingContent(
+                pending: pending,
+                itemCards: cardsForCountingItem(pending.item, in: controller.state),
+                starter: controller.state.starter,
+                onClaim: { controller.claimScore($0) },
+                onMuggins: { controller.callMuggins() },
+                onPass: { controller.passMuggins() }
+            )
+        } else {
+            // Transient — the CPU counts instantly, so this rarely renders.
+            Label("Opponent is counting…", systemImage: "hourglass")
+                .foregroundStyle(.secondary)
         }
     }
 }

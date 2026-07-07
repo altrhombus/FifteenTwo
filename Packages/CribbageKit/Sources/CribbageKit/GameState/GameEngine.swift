@@ -13,6 +13,12 @@ public enum GameEngine {
             return playCard(state, seat: seat, card: card)
         case .sayGo(let seat):
             return sayGo(state, seat: seat)
+        case .claimScore(let seat, let points):
+            return claimScore(state, seat: seat, points: points)
+        case .callMuggins(let seat):
+            return resolveMuggins(state, seat: seat, take: true)
+        case .passMuggins(let seat):
+            return resolveMuggins(state, seat: seat, take: false)
         }
     }
 
@@ -43,7 +49,10 @@ public enum GameEngine {
         case .pegging:
             return state.turnToAct
         case .counting:
-            return state.dealer
+            // Muggins makes the show interactive: whoever owes the current claim or
+            // muggins decision acts. Once counting is done (or muggins is off), the dealer
+            // is next — they deal the following hand.
+            return state.pendingCount?.actor ?? state.dealer
         case .gameOver:
             return nil
         }
@@ -72,6 +81,9 @@ public enum GameEngine {
         next.peggingCount = 0
         next.goSeat = nil
         next.lastCardPlayedBy = nil
+        next.peggingEvents = PerSeat(playerOne: [], playerTwo: [])
+        next.hisHeelsEvent = nil
+        next.pendingCount = nil
         next.lastRoundSummary = nil
         next.phase = .discarding
         return next
@@ -109,7 +121,9 @@ public enum GameEngine {
         var next = state
         next.starter = starter
         if starter.rank == .jack {
-            next.scores[next.dealer] += 2 // "his heels"
+            let heels = ScoreEvent(kind: .hisHeels, cards: [starter], points: 2) // "his heels"
+            next.scores[next.dealer] += heels.points
+            next.hisHeelsEvent = heels
         }
         next.peggingRemaining = next.hands
         next.turnToAct = next.dealer.opponent
@@ -138,6 +152,19 @@ public enum GameEngine {
 
         let events = peggingScoreForLatestPlay(pile: next.peggingPile, count: next.peggingCount, ruleset: next.ruleset)
         next.scores[seat] += events.reduce(0) { $0 + $1.points }
+        next.peggingEvents[seat].append(contentsOf: events)
+
+        let bothHandsEmpty = next.peggingRemaining.playerOne.isEmpty && next.peggingRemaining.playerTwo.isEmpty
+
+        // "One for last card": whoever plays the final card of the pegging phase pegs 1,
+        // unless that card made exactly 31 (which already scored 2). Without this the last
+        // player is short-changed on nearly every hand — the play almost always ends by a
+        // legal final card rather than a mutual "go" (which is handled in `sayGo`).
+        if bothHandsEmpty && next.peggingCount != 31 {
+            let lastCard = ScoreEvent(kind: .go, cards: [card], points: 1)
+            next.scores[seat] += lastCard.points
+            next.peggingEvents[seat].append(lastCard)
+        }
 
         if let winner = checkWinner(next) {
             next.winner = winner
@@ -180,7 +207,9 @@ public enum GameEngine {
         // Both seats have now said go this run — the run ends. Award the "go" point to
         // whoever played the last card, if any card was played in this run at all.
         if let scorer = next.lastCardPlayedBy {
-            next.scores[scorer] += 1
+            let goEvent = ScoreEvent(kind: .go, cards: next.peggingPile.last.map { [$0] } ?? [], points: 1)
+            next.scores[scorer] += goEvent.points
+            next.peggingEvents[scorer].append(goEvent)
         }
         resetPeggingRun(&next)
         next.turnToAct = firstAvailableLeader(preferring: firstGoSeat, in: next) ?? next.turnToAct
@@ -257,10 +286,38 @@ public enum GameEngine {
 
         var next = state
         let nonDealer = next.dealer.opponent
-
         let nonDealerBreakdown = Scorer.score(
             hand: next.hands[nonDealer], starter: starter, isCrib: false, ruleset: next.ruleset
         )
+
+        if next.ruleset.mugginsEnabled {
+            // Interactive show: award nothing automatically. Compute all three true values
+            // now — for the itemized summary and so the player can check their own count —
+            // then hand control to the non-dealer to claim their hand first. Points are
+            // awarded by the `.claimScore`/`.callMuggins` moves that follow.
+            let dealerBreakdown = Scorer.score(
+                hand: next.hands[next.dealer], starter: starter, isCrib: false, ruleset: next.ruleset
+            )
+            let cribBreakdown = Scorer.score(hand: next.crib, starter: starter, isCrib: true, ruleset: next.ruleset)
+            next.lastRoundSummary = RoundSummary(
+                nonDealerHand: nonDealerBreakdown,
+                dealerHand: dealerBreakdown,
+                crib: cribBreakdown,
+                starter: starter,
+                seed: seed,
+                hisHeels: next.hisHeelsEvent,
+                nonDealerPegging: next.peggingEvents[nonDealer],
+                dealerPegging: next.peggingEvents[next.dealer]
+            )
+            next.phase = .counting
+            next.pendingCount = PendingCount(
+                item: .nonDealerHand, owner: nonDealer, trueValue: nonDealerBreakdown.total
+            )
+            return next
+        }
+
+        // Automatic counting (muggins off): score in order, stopping the instant someone
+        // reaches the target — a player can win on their hand before the crib is ever counted.
         next.scores[nonDealer] += nonDealerBreakdown.total
 
         var dealerBreakdown: ScoreBreakdown?
@@ -284,13 +341,92 @@ public enum GameEngine {
             dealerHand: dealerBreakdown,
             crib: cribBreakdown,
             starter: starter,
-            seed: seed
+            seed: seed,
+            hisHeels: next.hisHeelsEvent,
+            nonDealerPegging: next.peggingEvents[nonDealer],
+            dealerPegging: next.peggingEvents[next.dealer]
         )
         next.phase = .counting
 
         if let winner = checkWinner(next) {
             next.winner = winner
             next.phase = .gameOver
+        }
+        return next
+    }
+
+    // MARK: - Muggins (interactive counting)
+
+    private static func claimScore(_ state: GameState, seat: Seat, points: Int) -> GameState {
+        precondition(state.phase == .counting, "Can only claim a score during counting")
+        guard let pending = state.pendingCount else {
+            preconditionFailure("No counting item is awaiting a claim")
+        }
+        precondition(pending.stage == .awaitingClaim, "The current counting item is not awaiting a claim")
+        precondition(seat == pending.owner, "Only \(pending.owner) may claim \(pending.item)")
+
+        var next = state
+        let award = max(0, min(points, pending.trueValue))
+        next.scores[seat] += award
+
+        if let winner = checkWinner(next) {
+            next.winner = winner
+            next.phase = .gameOver
+            next.pendingCount = nil
+            return next
+        }
+
+        let shortfall = pending.trueValue - award
+        if shortfall > 0 {
+            var updated = pending
+            updated.stage = .awaitingMuggins
+            updated.shortfall = shortfall
+            next.pendingCount = updated
+            return next
+        }
+        return advanceCounting(next, after: pending.item)
+    }
+
+    private static func resolveMuggins(_ state: GameState, seat: Seat, take: Bool) -> GameState {
+        precondition(state.phase == .counting, "Can only resolve muggins during counting")
+        guard let pending = state.pendingCount else {
+            preconditionFailure("No counting item is awaiting a muggins decision")
+        }
+        precondition(pending.stage == .awaitingMuggins, "The current counting item is not awaiting a muggins call")
+        precondition(seat == pending.owner.opponent, "Only \(pending.owner.opponent) may muggins \(pending.item)")
+
+        var next = state
+        if take {
+            next.scores[seat] += pending.shortfall
+            if let winner = checkWinner(next) {
+                next.winner = winner
+                next.phase = .gameOver
+                next.pendingCount = nil
+                return next
+            }
+        }
+        return advanceCounting(next, after: pending.item)
+    }
+
+    /// Moves the interactive show to the next item in official order, or ends it once the
+    /// crib has been counted.
+    private static func advanceCounting(_ state: GameState, after item: CountingItem) -> GameState {
+        guard let starter = state.starter else { preconditionFailure("Starter must be set during counting") }
+        var next = state
+
+        switch item {
+        case .nonDealerHand:
+            let dealerValue = Scorer.score(
+                hand: next.hands[next.dealer], starter: starter, isCrib: false, ruleset: next.ruleset
+            ).total
+            next.pendingCount = PendingCount(item: .dealerHand, owner: next.dealer, trueValue: dealerValue)
+        case .dealerHand:
+            let cribValue = Scorer.score(
+                hand: next.crib, starter: starter, isCrib: true, ruleset: next.ruleset
+            ).total
+            next.pendingCount = PendingCount(item: .crib, owner: next.dealer, trueValue: cribValue)
+        case .crib:
+            next.pendingCount = nil // the show is complete
         }
         return next
     }

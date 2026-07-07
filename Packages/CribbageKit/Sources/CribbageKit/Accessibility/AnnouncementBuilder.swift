@@ -14,7 +14,17 @@ public enum AnnouncementBuilder {
         var lines = moveDescription(before: before, after: after, move: move, listenerSeat: listenerSeat)
 
         if after.phase == .counting && before.phase != .counting {
-            lines.append(contentsOf: countingSummary(after, listenerSeat: listenerSeat))
+            // The move that ends the play (a final card or a mutual go) can itself score —
+            // e.g. a run plus "one for last card". Announce those play points explicitly
+            // here, because the generic score-delta path is skipped on this transition (the
+            // score jump also includes the about-to-be-counted hands, which would conflate).
+            lines.append(contentsOf: finalPlayAnnouncements(before: before, after: after, listenerSeat: listenerSeat))
+            if after.pendingCount == nil {
+                lines.append(contentsOf: countingSummary(after, listenerSeat: listenerSeat))
+            } else {
+                // Muggins: don't read the hand totals aloud — the player has to count them.
+                lines.append("Time to count. Claim your hand.")
+            }
         } else {
             lines.append(contentsOf: scoreDeltaAnnouncements(before: before, after: after, listenerSeat: listenerSeat))
         }
@@ -61,6 +71,16 @@ public enum AnnouncementBuilder {
         case .sayGo(let seat):
             let who = seat == listenerSeat ? "You say" : "Opponent says"
             return ["\(who) Go."]
+
+        case .claimScore(let seat, let points):
+            let who = seat == listenerSeat ? "You count" : "Opponent counts"
+            return ["\(who) \(points)."]
+
+        case .callMuggins(let seat):
+            return [seat == listenerSeat ? "You call muggins!" : "Opponent calls muggins!"]
+
+        case .passMuggins(let seat):
+            return [seat == listenerSeat ? "You pass on muggins." : "Opponent passes on muggins."]
         }
     }
 
@@ -72,6 +92,19 @@ public enum AnnouncementBuilder {
             guard delta > 0 else { return nil }
             let who = seat == listenerSeat ? "You score" : "Opponent scores"
             return "\(who) \(delta) point\(delta == 1 ? "" : "s")."
+        }
+    }
+
+    /// Points scored by the final play of the pegging phase, read off the per-seat
+    /// `peggingEvents` accumulator (the newly appended tail since `before`).
+    private static func finalPlayAnnouncements(before: GameState, after: GameState, listenerSeat: Seat) -> [String] {
+        Seat.allCases.compactMap { seat in
+            let alreadyAnnounced = before.peggingEvents[seat].count
+            let newEvents = after.peggingEvents[seat].dropFirst(alreadyAnnounced)
+            let points = newEvents.reduce(0) { $0 + $1.points }
+            guard points > 0 else { return nil }
+            let who = seat == listenerSeat ? "You score" : "Opponent scores"
+            return "\(who) \(points) point\(points == 1 ? "" : "s") on the play."
         }
     }
 

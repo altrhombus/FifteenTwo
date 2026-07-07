@@ -35,6 +35,50 @@ struct GameSessionControllerTests {
         }
     }
 
+    /// Same end-to-end drive, but with muggins enabled — the human claims a random (often
+    /// short) count each show and the CPU counts perfectly and mugginses the difference.
+    /// Guards against the interactive counting flow deadlocking or failing a precondition.
+    @Test func playsFullMugginsGamesToCompletion() async {
+        for seed in UInt64(0)..<2 {
+            let controller = GameSessionController(
+                humanSeat: .playerOne, difficulty: .beginner, ruleset: Ruleset(mugginsEnabled: true)
+            )
+            var rng = SeededGenerator(seed: seed &+ 2000)
+            var safetyCounter = 0
+
+            while controller.state.phase != .gameOver {
+                safetyCounter += 1
+                #expect(safetyCounter < 900, "Muggins game did not terminate at seed \(seed)")
+                guard safetyCounter < 900 else { break }
+                await performOneMugginsStep(controller: controller, rng: &rng)
+            }
+
+            #expect(controller.state.phase == .gameOver)
+            #expect(controller.state.winner != nil)
+            #expect(controller.state.scores[controller.state.winner!] >= controller.state.ruleset.gameTarget)
+        }
+    }
+
+    private func performOneMugginsStep(controller: GameSessionController, rng: inout SeededGenerator) async {
+        switch controller.state.phase {
+        case .counting:
+            if let pending = controller.humanPendingCount {
+                switch pending.stage {
+                case .awaitingClaim:
+                    controller.claimScore(Int.random(in: 0...pending.trueValue, using: &rng))
+                case .awaitingMuggins:
+                    controller.callMuggins()
+                }
+            } else if controller.state.pendingCount == nil {
+                controller.dealNextHand()
+            }
+            // else: CPU is mid-count; it acts synchronously, so just re-observe next loop.
+            await waitForCPU(controller)
+        default:
+            await performOneStep(controller: controller, rng: &rng)
+        }
+    }
+
     private func performOneStep(controller: GameSessionController, rng: inout SeededGenerator) async {
         switch controller.state.phase {
         case .dealing:

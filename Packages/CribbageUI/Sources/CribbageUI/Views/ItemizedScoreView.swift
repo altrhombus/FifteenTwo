@@ -8,12 +8,28 @@ import CribbageKit
 /// the total.
 struct ItemizedScoreView: View {
     let title: String
-    let breakdown: ScoreBreakdown
+    let events: [ScoreEvent]
+    let total: Int
+
+    /// Itemize a scored hand or crib (`Scorer` output).
+    init(title: String, breakdown: ScoreBreakdown) {
+        self.title = title
+        self.events = breakdown.allEvents
+        self.total = breakdown.total
+    }
+
+    /// Itemize a raw list of scoring events — used for pegging and his-heels, which aren't
+    /// part of a `ScoreBreakdown` but are captured on the `RoundSummary`.
+    init(title: String, events: [ScoreEvent]) {
+        self.title = title
+        self.events = events
+        self.total = events.reduce(0) { $0 + $1.points }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(title): \(breakdown.total) pts").font(.subheadline.bold())
-            ForEach(Array(breakdown.allEvents.enumerated()), id: \.offset) { _, event in
+            Text("\(title): \(total) pts").font(.subheadline.bold())
+            ForEach(Array(events.enumerated()), id: \.offset) { _, event in
                 Text("• \(describe(event))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -29,7 +45,9 @@ struct ItemizedScoreView: View {
         case .run: return "\(cardsText) = run of \(event.cards.count) for \(event.points)"
         case .flush: return "\(event.cards.count)-card flush for \(event.points)"
         case .nobs: return "\(cardsText) = his nobs for \(event.points)"
-        case .thirtyOne, .go, .hisHeels: return "\(cardsText) for \(event.points)"
+        case .thirtyOne: return "\(cardsText) = 31 for \(event.points)"
+        case .go: return "go / last card for \(event.points)"
+        case .hisHeels: return "\(cardsText) = his heels for \(event.points)"
         }
     }
 }
