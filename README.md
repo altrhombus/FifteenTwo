@@ -6,7 +6,7 @@ See [`docs/plan.md`](docs/plan.md) for the full architecture and build plan.
 
 ## Status
 
-Phases 1–13 of [`docs/plan.md`](docs/plan.md)'s build order are complete: solo play against an exact-solver CPU (with training breakdown and replay), physical board companion mode with SwiftData history, a watchOS companion for the board, adaptive iPad/Mac layouts, Game Center achievements/leaderboards, Multipeer + SharePlay pass-and-play, and Vision hand-scanning (the "Scan" tab). All of the MVP phases in the build order are now done; what's left is Post-MVP (Widgets/Live Activities, Game Center turn-based matchmaking).
+Phases 1–13 of [`docs/plan.md`](docs/plan.md)'s build order are complete (solo play, physical board mode, watchOS companion, adaptive iPad/Mac layouts, Game Center achievements/leaderboards, Multipeer + SharePlay pass-and-play, and Vision hand-scanning). Of the two Post-MVP items, Widgets/Live Activities is now done too: an App Group-backed "Last Match" widget and a Live Activity that tracks an in-progress physical board match on the Lock Screen/Dynamic Island. Game Center turn-based async matchmaking is the one remaining item.
 
 ## Requirements
 
@@ -33,6 +33,8 @@ A few things are coded but intentionally incomplete, either because they need a 
 - **Neither Multipeer nor SharePlay pass-and-play implements the commit-then-reveal fairness check** described in `docs/plan.md`'s RNG & Fairness section. The core sync (both devices converging on identical state via `GameEngine.reduce`, shared by both transports through `MultiplayerSessionController`) is real and tested; the additional integrity check — the dealing device pre-committing `SHA256(seed)` so the other device can later verify a revealed seed wasn't swapped out — is a documented gap, not a silent omission. Worth its own follow-up pass rather than a half-considered bolt-on.
 - **SharePlay's seat assignment (who's playerOne) has no negotiation protocol beyond sorting participant UUIDs.** This is deterministic and works for exactly two participants, but a third person joining the same FaceTime call and opening the activity has no defined role — they'd just see a perpetual "waiting" state. Fine for the intended two-player game, not handled gracefully beyond that.
 - **No automated on-device or interactive UI testing.** Verification for each phase has relied on `swift test`, `xcodebuild`, SwiftLint, and Simulator screenshots — real hands-on play-testing (does it *feel* right, does VoiceOver actually read out a full hand correctly, does WatchConnectivity actually sync between two real devices) still needs to happen on your own hardware.
+- **The board-match Live Activity's Lock Screen/Dynamic Island rendering hasn't been visually verified.** Build succeeds and the start/update/end lifecycle is wired into `BoardSessionController`, but actually seeing it appear needs starting a real board match and checking the Lock Screen or Dynamic Island by hand (not something safely scriptable via blind Simulator taps) — same category of manual-verification gap as VoiceOver and WatchConnectivity above.
+- **The shared App Group container (`group.com.altrhombus.FifteenTwo`) is iOS-only for now** — `FifteenTwo-macOS` doesn't have the entitlement, since App Groups interact with App Sandbox on macOS (which this target doesn't currently enable) and there's no macOS widget yet to justify sorting that out. `CribbageDataStack`'s `useAppGroup` parameter defaults to `false` for exactly this reason — the same crash-without-entitlement risk as CloudKit.
 
 ## License
 
